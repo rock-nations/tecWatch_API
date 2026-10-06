@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tecWatchStatus>
+  <device_id>TW-10928</device_id>
+  <status>OPERATIONAL</status>
+  <battery_level>94.5</battery_level>
+  <uptime_seconds>36000</uptime_seconds>
+  <temperature>28.4</temperature>
+  <timestamp>2026-10-02T12:00:00Z</timestamp>
+</tecWatchStatus>

@@ -1,0 +1,56 @@
+{
+  "analysis_id": "TRACE-RUN-1001",
+  "device_id": "TW-NODE-01",
+  "timestamp": "2026-10-03T12:00:00Z",
+  "analysis_type": "TRACE_COMMUNICATION",
+  "result_status": "FAILED",
+  "summary": "Message length error detected on CAN bus packet ID 127.",
+  "trace_messages": [
+    {
+      "timestamp": "2026-10-03T12:00:00Z",
+      "sender": "ECU_ENGINE",
+      "receiver": "TECWATCH_RECORDER",
+      "protocol": "CAN",
+      "message_type": "TELEMETRY",
+      "status": "FAILED",
+      "error_reason": "Message Length Error"
+    },
+    {
+      "timestamp": "2026-10-03T12:00:01Z",
+      "sender": "SENSOR_BRAKE",
+      "receiver": "TECWATCH_RECORDER",
+      "protocol": "CAN",
+      "message_type": "HEARTBEAT",
+      "status": "OK",
+      "error_reason": null
+    }
+  ],
+  "failure_findings": [
+    {
+      "message_id": "127",
+      "expected_length": 64,
+      "actual_length": 60,
+      "result": "Message Length Error"
+    }
+  ],
+  "data_comparisons": [
+    {
+      "field": "MessageID",
+      "expected": "1001",
+      "actual": "1001",
+      "result": "OK"
+    },
+    {
+      "field": "Length",
+      "expected": "64",
+      "actual": "60",
+      "result": "Error"
+    },
+    {
+      "field": "Status",
+      "expected": "READY",
+      "actual": "READY",
+      "result": "OK"
+    }
+  ]
+}

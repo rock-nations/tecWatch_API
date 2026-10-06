@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AnalysisResult>
+  <analysis_id>TRACE-RUN-1001</analysis_id>
+  <device_id>TW-NODE-01</device_id>
+  <timestamp>2026-10-03T12:00:00Z</timestamp>
+  <analysis_type>TRACE_COMMUNICATION</analysis_type>
+  <result_status>FAILED</result_status>
+  <summary>Message length error detected on CAN bus packet ID 127.</summary>
+  <trace_messages>
+    <timestamp>2026-10-03T12:00:00Z</timestamp>
+    <sender>ECU_ENGINE</sender>
+    <receiver>TECWATCH_RECORDER</receiver>
+    <protocol>CAN</protocol>
+    <message_type>TELEMETRY</message_type>
+    <status>FAILED</status>
+    <error_reason>Message Length Error</error_reason>
+  </trace_messages>
+  <failure_findings>
+    <message_id>127</message_id>
+    <expected_length>64</expected_length>
+    <actual_length>60</actual_length>
+    <result>Message Length Error</result>
+  </failure_findings>
+  <data_comparisons>
+    <field>MessageID</field>
+    <expected>1001</expected>
+    <actual>1001</actual>
+    <result>OK</result>
+  </data_comparisons>
+</AnalysisResult>

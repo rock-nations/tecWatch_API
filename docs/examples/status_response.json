@@ -1,0 +1,9 @@
+{
+  "device_id": "TW-10928",
+  "status": "OPERATIONAL",
+  "battery_level": 94.5,
+  "uptime_seconds": 36000,
+  "temperature": 28.4,
+  "timestamp": "2026-10-02T12:00:00Z",
+  "active_alerts": []
+}

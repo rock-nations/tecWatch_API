@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AnalysisResultResponse>
+  <status>SUCCESS</status>
+  <message>Post-analysis result validated and sent to target server</message>
+  <analysis_id>AN-98432</analysis_id>
+  <processed_at>2026-10-02T12:05:01Z</processed_at>
+</AnalysisResultResponse>

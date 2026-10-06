@@ -1,0 +1,108 @@
+5. golam kibria
+
+Project
+tecWatch – Configurable Status and Post-Analysis API
+Objective
+Develop a configurable API layer for communication between tecWatch, analysis components, and the DBLTAS Web GUI.
+The API should retrieve tecWatch status information and send post-analysis results to DBLTAS.
+The solution should not depend on a single hard-coded server.
+Tasks
+Implement an API to fetch tecWatch status.
+DBLTAS Web GUI
+Make configuration dynamic.
+Example configuration:
+server:
+  host: "192.168.1.10"
+  port: 8080
+
+api:
+  status_endpoint: "/api/status"
+  result_endpoint: "/api/analysis"
+Implement validation for:
+•	message length;
+•	mandatory fields;
+•	data types;
+•	message format;
+•	invalid JSON/XML;
+•	unexpected content.
+The implementation should support different servers using configuration rather than source-code modifications.
+Expected Deliverables
+•	API architecture.
+•	GET Status API.
+•	POST Analysis Result API.
+•	Configuration mechanism.
+•	Message-length validation.
+•	Message-format validation.
+•	Error handling.
+•	Logging.
+•	API documentation.
+•	Example request/response messages.
+•	Unit/integration tests.
+Completion Criteria
+The API should be able to connect to another configured server simply by changing configuration values, without changing application code.
+
+
+
+
+
+
+
+
+
+
+
+
+
+6. Akif Ahmed
+Project
+tecWatch – Interactive Trace Analysis Web GUI
+Objective
+Develop an interactive Web GUI that allows users to view and analyze communication or trace-analysis results.
+The GUI should present failures clearly and provide facilities for comparing data structures and inspecting trace-related information.
+Main Tasks
+Create a dashboard for displaying analysis results. 
+Implement trace-data visualization.
+Display information such as:
+•	timestamp;
+•	sender;
+•	receiver;
+•	protocol;
+•	message type;
+•	status;
+•	error reason.
+Implement failure findings.
+Example:
+Message 127
+Expected Length: 64
+Actual Length:   60
+
+Result:
+Message Length Error
+Implement data-structure comparison.
+For example:
+Field	Expected	Actual	Result
+MessageID	1001	1001	OK
+Length	64	60	Error
+Status	READY	READY	OK
+Provide useful features such as:
+•	search;
+•	filtering;
+•	sorting;
+•	error highlighting;
+•	detailed message view.
+Expected Deliverables
+•	Working Web GUI.
+•	Dashboard.
+•	Trace-data view.
+•	Failure-analysis view.
+•	Data-comparison view.
+•	Search/filter function.
+•	Interface to backend/API.
+•	README.
+•	demo.
+•	Test scenarios.
+Completion Criteria
+A user should be able to open the application, inspect an analysis result, identify failed messages, see the reason for the failure, and compare expected and actual data.
+
+
+Task for all: Need to define at least 10-15 Data (PCAP, PCAPENG, BLF, REPORT) Analysis scenario.

@@ -1,0 +1,98 @@
+import os
+from pathlib import Path
+from typing import Optional
+import yaml
+from pydantic import BaseModel, Field, field_validator
+
+
+class ServerConfig(BaseModel):
+    host: str = Field(default="127.0.0.1", description="Target server IP or hostname")
+    port: int = Field(default=8080, ge=1, le=65535, description="Target server port")
+    timeout_seconds: float = Field(default=5.0, gt=0, description="HTTP request timeout in seconds")
+
+    @property
+    def base_url(self) -> str:
+        return f"http://{self.host}:{self.port}"
+
+
+class ApiConfig(BaseModel):
+    status_endpoint: str = Field(default="/api/status", description="Status endpoint path")
+    result_endpoint: str = Field(default="/api/analysis", description="Post-analysis endpoint path")
+    max_payload_bytes: int = Field(default=1048576, ge=1024, description="Max allowed payload size in bytes")
+
+    @field_validator("status_endpoint", "result_endpoint")
+    @classmethod
+    def ensure_leading_slash(cls, v: str) -> str:
+        if not v.startswith("/"):
+            return f"/{v}"
+        return v
+
+
+class GatewayConfig(BaseModel):
+    listen_host: str = Field(default="0.0.0.0", description="Gateway host to bind to")
+    listen_port: int = Field(default=8000, ge=1, le=65535, description="Gateway port to bind to")
+    log_level: str = Field(default="INFO", description="Logging level")
+    log_file: str = Field(default="logs/tecwatch_api.log", description="Path to log file")
+
+
+class AppConfig(BaseModel):
+    server: ServerConfig = Field(default_factory=ServerConfig)
+    api: ApiConfig = Field(default_factory=ApiConfig)
+    gateway: GatewayConfig = Field(default_factory=GatewayConfig)
+
+
+class ConfigManager:
+    _instance: Optional["ConfigManager"] = None
+    _config: AppConfig
+
+    def __init__(self, config_path: Optional[str] = None):
+        self.config_path = Path(
+            config_path
+            or os.environ.get("TECWATCH_CONFIG_PATH")
+            or Path(__file__).resolve().parent / "config.yaml"
+        )
+        self._config = self.load()
+
+    @classmethod
+    def get_instance(cls, config_path: Optional[str] = None) -> "ConfigManager":
+        if cls._instance is None:
+            cls._instance = cls(config_path)
+        elif config_path is not None and Path(config_path) != cls._instance.config_path:
+            cls._instance = cls(config_path)
+        return cls._instance
+
+    @classmethod
+    def reset_instance(cls) -> None:
+        cls._instance = None
+
+    def load(self) -> AppConfig:
+        raw_data = {}
+        if self.config_path.exists():
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                content = yaml.safe_load(f)
+                if isinstance(content, dict):
+                    raw_data = content
+
+        # Apply environment variable overrides if provided
+        if "TECWATCH_SERVER_HOST" in os.environ:
+            raw_data.setdefault("server", {})["host"] = os.environ["TECWATCH_SERVER_HOST"]
+        if "TECWATCH_SERVER_PORT" in os.environ:
+            raw_data.setdefault("server", {})["port"] = int(os.environ["TECWATCH_SERVER_PORT"])
+        if "TECWATCH_STATUS_ENDPOINT" in os.environ:
+            raw_data.setdefault("api", {})["status_endpoint"] = os.environ["TECWATCH_STATUS_ENDPOINT"]
+        if "TECWATCH_RESULT_ENDPOINT" in os.environ:
+            raw_data.setdefault("api", {})["result_endpoint"] = os.environ["TECWATCH_RESULT_ENDPOINT"]
+
+        self._config = AppConfig(**raw_data)
+        return self._config
+
+    def reload(self) -> AppConfig:
+        return self.load()
+
+    @property
+    def config(self) -> AppConfig:
+        return self._config
+
+
+def get_config() -> AppConfig:
+    return ConfigManager.get_instance().config
