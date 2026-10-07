@@ -5,6 +5,7 @@ A configurable API layer for communication between **tecWatch**, **analysis comp
 ## 🌟 Key Features
 
 - **Zero-Code Server Switching**: Point to any remote tecWatch hardware or DBLTAS server simply by editing `config/config.yaml` or setting environment variables.
+- **Validated Analysis Report Serving**: `GET /api/analysis` reads the configured analysis report JSON file on every request, validates it, and returns it unchanged to the Web GUI.
 - **Dual Payload Formats (JSON & XML)**: Seamlessly accepts and generates both JSON (`application/json`) and XML (`application/xml`).
 - **Comprehensive Multi-Tier Validation**:
   - **Message Length**: Enforces request size limits via ASGI middleware (`413 Payload Too Large`) and field length bounds.
@@ -23,11 +24,14 @@ A configurable API layer for communication between **tecWatch**, **analysis comp
 
 ```mermaid
 flowchart LR
-    GUI["DBLTAS Web GUI"] <-->|GET /api/status\nPOST /api/analysis| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
+    GUI["DBLTAS Web GUI"] -->|GET /api/status\nGET /api/analysis| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
+    Report[("Analysis report JSON\n(analysis.report_path)")] -->|read + validate\non every GET| Gateway
     AnalysisComp["Analysis Components"] -->|POST /api/analysis\n(JSON or XML)| Gateway
-    Gateway <-->|Dynamic Upstream\nhttp://host:port| Server["Configured Target Server\n(e.g., 192.168.1.10:8080)"]
+    Gateway <-->|Dynamic Upstream\nhttp://host:port| Server["Configured tecWatch / Target Server\n(e.g., 192.168.1.10:8080)"]
     Config["config/config.yaml"] -.->|Dynamic Settings| Gateway
 ```
+
+On initial load the Web GUI calls `GET /api/status` (proxied to the configured tecWatch server) and `GET /api/analysis` (read from the analysis report file). The GUI never posts analysis data; `POST /api/analysis` is for analysis components and forwards validated results to the configured target server.
 
 ---
 
@@ -61,6 +65,10 @@ api:
   result_endpoint: "/api/analysis"    # Post-analysis endpoint
   max_payload_bytes: 1048576          # 1 MB maximum payload length
 
+analysis:
+  report_path: "data/data-analysis-report.json"  # Report served by GET /api/analysis
+  max_report_bytes: 1048576                       # 1 MB maximum report length
+
 gateway:
   listen_host: "0.0.0.0"
   listen_port: 8000
@@ -74,6 +82,13 @@ gateway:
 > export TECWATCH_SERVER_HOST="10.0.0.25"
 > export TECWATCH_SERVER_PORT="9000"
 > ```
+
+> **Analysis Report File**:
+> A relative `analysis.report_path` is resolved against the backend folder; absolute paths work too. To serve another report, change the path in `config/config.yaml` (then `POST /api/config/reload`) or set:
+> ```bash
+> export TECWATCH_ANALYSIS_REPORT_PATH="/path/to/data-analysis-report.json"
+> ```
+> The file is read on every request, so a regenerated report is served without restarting the API.
 
 ### 3. Running the API
 
@@ -136,115 +151,124 @@ curl -X GET "http://localhost:8000/api/status?device_id=TW-10928" \
 
 ---
 
-### 2. POST Analysis Result (`/api/analysis`)
+### 2. GET Analysis Report (`/api/analysis`) - Web GUI Integration
 
-Submits communication trace analysis results. Accepts both JSON and XML.
+Called by the DBLTAS Web GUI on initial load. The API reads the configured analysis report file, validates it, and returns it unchanged (format: [`data/data-analysis-report.json`](data/data-analysis-report.json)).
+
+#### Request:
+```bash
+curl -s "http://localhost:8000/api/analysis"
+
+# Same report as XML
+curl -s "http://localhost:8000/api/analysis" -H "Accept: application/xml"
+```
+
+**Response (JSON, shortened)**:
+```json
+{
+  "analysis_id": "TRACE-RUN-20261002-102359",
+  "device_id": "DETHMM AZA34##0001",
+  "timestamp": "2026-10-02T10:23:59.953Z",
+  "analysis_type": "TRACE_COMMUNICATION",
+  "result_status": "FAILED",
+  "summary": "2 of 5 test cases failed. ...",
+  "trace_messages": [
+    {
+      "message_id": "frame-380-2",
+      "timestamp": "2026-10-02T10:27:00.241Z",
+      "time_s": 180.287372,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": { "belegung": 1, "grundstellbar": 0, "achszaehlfuellstand": 0 },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "FAILED",
+      "error_reason": "Message Length Error"
+    }
+  ],
+  "failure_findings": [
+    {
+      "message_id": "frame-380-2",
+      "expected_length": 48,
+      "actual_length": 47,
+      "result": "Message Length Error",
+      "test_case": "TC_NPRO.295.02288.01",
+      "timestamp": "2026-10-02T10:27:00.241Z",
+      "time_s": 180.287372,
+      "category": "incorrect_length",
+      "description": "Test_Description step 2 expects a 48-byte MELDUNG_GFMA_BELEGUNGSZUSTAND, the device sends 47 bytes: the step cannot pass",
+      "confidence": 0.9,
+      "evidence": ["TC_NPRO.295.02288.01_xcel.txt row 1", "RealOCWorking_TDS_21026.pcapng frame 380 telegram 2"]
+    }
+  ],
+  "data_comparisons": [
+    {
+      "field": "Length MELDUNG_GFMA_BELEGUNGSZUSTAND (Test_Description step 2)",
+      "expected": "48",
+      "actual": "47",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.02288.01"
+    }
+  ]
+}
+```
+
+**Response when the report fails validation** (`500 Internal Server Error`):
+```json
+{
+  "error": "Invalid Analysis Report",
+  "detail": "Analysis report failed validation (check mandatory fields, data types, message length, or unexpected content).",
+  "validation_errors": [
+    {
+      "field": "trace_messages -> 1 -> length",
+      "type": "int_type",
+      "message": "Invalid data type for field 'trace_messages -> 1 -> length': Input should be a valid integer"
+    }
+  ]
+}
+```
+If the report file does not exist, the API answers `404 Not Found` with `"error": "Analysis Report Not Found"`.
+
+---
+
+### 3. POST Analysis Result (`/api/analysis`)
+
+Lets analysis components submit a result in the same structure as the analysis report. Accepts both JSON and XML. The result is validated and forwarded to the configured target server (`server` + `api.result_endpoint`); it does not replace the report served by `GET /api/analysis`. The Web GUI does not use this endpoint.
 
 #### Request (JSON):
 ```bash
 curl -X POST "http://localhost:8000/api/analysis" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
-  -d '{
-    "analysis_id": "TRACE-RUN-1001",
-    "device_id": "TW-NODE-01",
-    "timestamp": "2026-10-03T12:00:00Z",
-    "analysis_type": "TRACE_COMMUNICATION",
-    "result_status": "FAILED",
-    "summary": "Message length error detected on CAN bus packet ID 127.",
-    "trace_messages": [
-      {
-        "timestamp": "2026-10-03T12:00:00Z",
-        "sender": "ECU_ENGINE",
-        "receiver": "TECWATCH_RECORDER",
-        "protocol": "CAN",
-        "message_type": "TELEMETRY",
-        "status": "FAILED",
-        "error_reason": "Message Length Error"
-      }
-    ],
-    "failure_findings": [
-      {
-        "message_id": "127",
-        "expected_length": 64,
-        "actual_length": 60,
-        "result": "Message Length Error"
-      }
-    ],
-    "data_comparisons": [
-      {
-        "field": "MessageID",
-        "expected": "1001",
-        "actual": "1001",
-        "result": "OK"
-      },
-      {
-        "field": "Length",
-        "expected": "64",
-        "actual": "60",
-        "result": "Error"
-      }
-    ]
-  }'
+  --data-binary @docs/examples/analysis_request.json
 ```
-
-**Response (JSON)**:
-```json
-{
-  "status": "SUCCESS",
-  "message": "Post-analysis result validated and sent to target server",
-  "analysis_id": "TRACE-RUN-1001",
-  "processed_at": "2026-10-03T12:00:01Z"
-}
-```
-
----
-
-### 3. GET Analysis Results (`/api/analysis`) - Web GUI Integration
-
-Used by Akif's Web GUI to display the analysis dashboard, search, filter, and inspect failures.
-
-#### List & Filter:
-```bash
-# Query all analysis records
-curl -s http://localhost:8000/api/analysis
-
-# Filter by outcome status
-curl -s "http://localhost:8000/api/analysis?result_status=FAILED"
-
-# Search trace logs
-curl -s "http://localhost:8000/api/analysis?search=CAN"
-```
-
-#### Detailed View (Failure Findings & Data Comparison):
-```bash
-curl -s "http://localhost:8000/api/analysis/TRACE-RUN-1001"
-```
-
 
 #### Request (XML):
 ```bash
 curl -X POST "http://localhost:8000/api/analysis" \
   -H "Content-Type: application/xml" \
   -H "Accept: application/xml" \
-  -d '<?xml version="1.0" encoding="UTF-8"?>
-<AnalysisResult>
-  <analysis_id>AN-98432</analysis_id>
-  <device_id>TW-10928</device_id>
-  <timestamp>2026-10-02T12:05:00Z</timestamp>
-  <analysis_type>SPECTRAL_VIBRATION</analysis_type>
-  <result_status>PASSED</result_status>
-  <metrics>
-    <peak_frequency_hz>120.5</peak_frequency_hz>
-    <rms_acceleration>0.045</rms_acceleration>
-  </metrics>
-  <summary>Vibration levels within normal operating tolerances.</summary>
-</AnalysisResult>'
+  --data-binary @docs/examples/analysis_request.xml
+```
+In XML, repeated elements form lists (`<trace_messages>`, `<evidence>`) and empty elements (`<test_case/>`) mean `null`.
+
+**Response (JSON)**:
+```json
+{
+  "status": "SUCCESS",
+  "message": "Post-analysis result validated and sent to target server",
+  "analysis_id": "TRACE-RUN-20261002-102359",
+  "processed_at": "2026-10-03T12:00:01Z"
+}
 ```
 
 ---
 
-### 3. Dynamic Configuration Inspection & Hot Reload
+### 4. Dynamic Configuration Inspection & Hot Reload
 
 #### Check current configuration:
 ```bash
@@ -260,6 +284,10 @@ curl -X POST "http://localhost:8000/api/config/reload"
 
 ## 🛡️ Validation Rules & Failure Responses
 
+The same schema (`src/models/analysis.py`) validates the report file served by `GET /api/analysis` and payloads sent to `POST /api/analysis`.
+
+### POST `/api/analysis` (request payload)
+
 | Validation Test | Status Code | Error Message / Details |
 | :--- | :--- | :--- |
 | **Payload > Max Size** | `413 Payload Too Large` | `"Request body size exceeds configured limit"` |
@@ -269,6 +297,22 @@ curl -X POST "http://localhost:8000/api/config/reload"
 | **Invalid / Malformed JSON** | `400 Bad Request` | `"Malformed JSON syntax at line X, col Y"` |
 | **Invalid / Malformed XML** | `400 Bad Request` | `"Invalid XML syntax or entity error"` |
 | **Wrong Content-Type** | `415 Unsupported Media Type`| `"Unsupported Content-Type. Must be application/json or application/xml"` |
+
+### GET `/api/analysis` (analysis report file)
+
+| Validation Test | Status Code | Error Message / Details |
+| :--- | :--- | :--- |
+| **Report File Missing** | `404 Not Found` | `"Analysis report file '<name>' does not exist."` |
+| **Report > `max_report_bytes`** | `500 Internal Server Error` | `"Analysis report exceeds the configured size limit (N bytes)."` |
+| **Invalid / Malformed JSON, not UTF-8, not an object** | `500 Internal Server Error` | `"Malformed JSON syntax at line X, column Y: ..."` |
+| **Schema Violations** (mandatory fields, data types, field lengths, unexpected content) | `500 Internal Server Error` | `validation_errors` list with the same messages as the POST table |
+
+### Report schema rules
+
+- JSON values must already have the declared type: `"length": "47"` is rejected, timestamps must be ISO 8601 strings. (XML is untyped, so XML values are converted.)
+- Enumerations: `result_status` ∈ `PASSED, FAILED, WARNING, INCONCLUSIVE`; trace `status` ∈ `OK, FAILED, WARNING`; comparison `result` ∈ `OK, Error, Warning`.
+- Formats and ranges: `message_code` is hexadecimal (`0x0007`), `category` is snake_case, `confidence` is 0.0–1.0, lengths and `time_s` are non-negative.
+- Consistency: trace `message_id` values are unique; a finding's `message_id` must reference a trace message; `expected_length` and `actual_length` are set together, and `actual_length` must equal the referenced message's `length`.
 
 ---
 
@@ -288,8 +332,10 @@ pytest -v
 ```text
 tecwatch_api/
 ├── config/
-│   ├── config.yaml          # Target server & API endpoints configuration
+│   ├── config.yaml          # Target server, API endpoints & analysis report configuration
 │   └── settings.py          # Dynamic configuration loader & Pydantic models
+├── data/
+│   └── data-analysis-report.json # Analysis report served by GET /api/analysis
 ├── src/
 │   ├── main.py              # Application entrypoint & ASGI factory
 │   ├── api/
@@ -298,8 +344,9 @@ tecwatch_api/
 │   │   └── error_handlers.py# Standardized JSON/XML error handlers
 │   ├── models/
 │   │   ├── status.py        # Strict Pydantic models for status
-│   │   └── analysis.py      # Strict Pydantic models for post-analysis
+│   │   └── analysis.py      # Strict Pydantic models for the analysis report
 │   ├── services/
+│   │   ├── analysis_report.py # Reads & validates the analysis report file
 │   │   ├── client.py        # Async upstream HTTP client
 │   │   ├── xml_handler.py   # Safe XML parser and serializer (defusedxml)
 │   │   └── mock_server.py   # Built-in mock tecWatch/DBLTAS server
@@ -310,7 +357,7 @@ tecwatch_api/
 │   ├── test_config.py       # Server switching & reload tests
 │   ├── test_validations.py  # 6-point validation test suite
 │   ├── test_status_api.py   # Status endpoint unit/integration tests
-│   └── test_analysis_api.py # Post-analysis unit/integration tests
+│   └── test_analysis_api.py # Analysis report (GET) & post-analysis (POST) tests
 ├── docs/
 │   ├── api_documentation.md # Detailed specification document
 │   └── examples/            # Sample JSON and XML payloads

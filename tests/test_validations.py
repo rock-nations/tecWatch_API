@@ -54,25 +54,14 @@ async def test_mandatory_fields_missing(client):
 
 
 @pytest.mark.asyncio
-async def test_data_types_invalid(client):
-    # expected_length in failure_findings should be an int, passing string "sixty"
+async def test_data_types_invalid(client, valid_report):
     # analysis_id should be string, passing a list
-    invalid_type_payload = {
-        "analysis_id": ["not", "a", "string"],
-        "device_id": "TW-01",
-        "timestamp": "2026-10-03T12:00:00Z",
-        "analysis_type": "TRACE_COMMUNICATION",
-        "result_status": "PASSED",
-        "summary": "Sample summary",
-        "failure_findings": [
-            {
-                "message_id": "127",
-                "expected_length": "sixty",  # invalid int
-                "actual_length": 60,
-                "result": "Message Length Error",
-            }
-        ],
-    }
+    # expected_length in failure_findings should be an int, passing string "sixty"
+    # length in trace_messages should be an int, passing the numeric string "47"
+    invalid_type_payload = valid_report
+    invalid_type_payload["analysis_id"] = ["not", "a", "string"]
+    invalid_type_payload["failure_findings"][0]["expected_length"] = "sixty"
+    invalid_type_payload["trace_messages"][1]["length"] = "47"
 
     response = await client.post(
         "/api/analysis",
@@ -82,6 +71,10 @@ async def test_data_types_invalid(client):
     assert response.status_code == 422
     data = response.json()
     assert data["error"] == "Validation Error"
+    errors = {e["field"]: e["message"] for e in data["validation_errors"]}
+    assert errors["analysis_id"].startswith("Invalid data type")
+    assert errors["failure_findings -> 0 -> expected_length"].startswith("Invalid data type")
+    assert errors["trace_messages -> 1 -> length"].startswith("Invalid data type")
 
 
 @pytest.mark.asyncio

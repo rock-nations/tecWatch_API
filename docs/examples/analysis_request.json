@@ -1,56 +1,89 @@
 {
-  "analysis_id": "TRACE-RUN-1001",
-  "device_id": "TW-NODE-01",
-  "timestamp": "2026-10-03T12:00:00Z",
+  "analysis_id": "TRACE-RUN-20261002-102359",
+  "device_id": "DETHMM AZA34##0001",
+  "timestamp": "2026-10-02T10:23:59.953Z",
   "analysis_type": "TRACE_COMMUNICATION",
   "result_status": "FAILED",
-  "summary": "Message length error detected on CAN bus packet ID 127.",
+  "summary": "1 of 2 test cases failed. TC_NPRO.295.02288.01: MELDUNG_GFMA_BELEGUNGSZUSTAND is one byte shorter than the Test_Description expects.",
   "trace_messages": [
     {
-      "timestamp": "2026-10-03T12:00:00Z",
-      "sender": "ECU_ENGINE",
-      "receiver": "TECWATCH_RECORDER",
-      "protocol": "CAN",
-      "message_type": "TELEMETRY",
-      "status": "FAILED",
-      "error_reason": "Message Length Error"
-    },
-    {
-      "timestamp": "2026-10-03T12:00:01Z",
-      "sender": "SENSOR_BRAKE",
-      "receiver": "TECWATCH_RECORDER",
-      "protocol": "CAN",
-      "message_type": "HEARTBEAT",
+      "message_id": "frame-11-1",
+      "timestamp": "2026-10-02T10:24:03.601Z",
+      "time_s": 3.648055,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0024",
+      "direction": "ZE→AZ",
+      "length": 44,
+      "fields": {
+        "btp_version": 1
+      },
+      "test_case": null,
       "status": "OK",
       "error_reason": null
+    },
+    {
+      "message_id": "frame-380-2",
+      "timestamp": "2026-10-02T10:27:00.241Z",
+      "time_s": 180.287372,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 1,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "FAILED",
+      "error_reason": "Message Length Error"
     }
   ],
   "failure_findings": [
     {
-      "message_id": "127",
-      "expected_length": 64,
-      "actual_length": 60,
-      "result": "Message Length Error"
+      "message_id": "frame-380-2",
+      "expected_length": 48,
+      "actual_length": 47,
+      "result": "Message Length Error",
+      "test_case": "TC_NPRO.295.02288.01",
+      "timestamp": "2026-10-02T10:27:00.241Z",
+      "time_s": 180.287372,
+      "category": "incorrect_length",
+      "description": "Test_Description step 2 expects a 48-byte MELDUNG_GFMA_BELEGUNGSZUSTAND, the device sends 47 bytes: the step cannot pass",
+      "confidence": 0.9,
+      "evidence": [
+        "TC_NPRO.295.02288.01_xcel.txt row 1",
+        "RealOCWorking_TDS_21026.pcapng frame 380 telegram 2"
+      ]
     }
   ],
   "data_comparisons": [
     {
-      "field": "MessageID",
-      "expected": "1001",
-      "actual": "1001",
-      "result": "OK"
+      "field": "Test verdict",
+      "expected": "PASSED",
+      "actual": "FAILED",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.02288.01"
     },
     {
-      "field": "Length",
-      "expected": "64",
-      "actual": "60",
-      "result": "Error"
+      "field": "Length MELDUNG_GFMA_BELEGUNGSZUSTAND (Test_Description step 2)",
+      "expected": "48",
+      "actual": "47",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.02288.01"
     },
     {
-      "field": "Status",
-      "expected": "READY",
-      "actual": "READY",
-      "result": "OK"
+      "field": "RaSTA message gap",
+      "expected": "<= 750 ms",
+      "actual": "max 306 ms",
+      "result": "OK",
+      "test_case": null
     }
   ]
 }

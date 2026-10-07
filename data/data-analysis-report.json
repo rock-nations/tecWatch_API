@@ -1,0 +1,1102 @@
+{
+  "analysis_id": "TRACE-RUN-20261002-102359",
+  "device_id": "DETHMM AZA34##0001",
+  "timestamp": "2026-10-02T10:23:59.953Z",
+  "analysis_type": "TRACE_COMMUNICATION",
+  "result_status": "FAILED",
+  "summary": "2 of 5 test cases failed. TC_NPRO.295.02288.01: 34W1 became disturbed (Belegungszustand 3) 102 ms after an occupied report with Achszählfüllstand 0x0000; reset possible for 50 s but no AZG/AZGH sent. TC_NPRO.295.00525.01: Started in state 3/0 left by TC_NPRO.295.02288.01(O) (its cleanup failed). TC_NPRO.295.00522.01 inconclusive: Test execution stopped: test unit stopped by the user.",
+  "trace_messages": [
+    {
+      "message_id": "frame-11-1",
+      "timestamp": "2026-10-02T10:24:03.601Z",
+      "time_s": 3.648055,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0024",
+      "direction": "ZE→AZ",
+      "length": 44,
+      "fields": {
+        "btp_version": 1
+      },
+      "test_case": null,
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-13-1",
+      "timestamp": "2026-10-02T10:24:03.903Z",
+      "time_s": 3.95014,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0025",
+      "direction": "AZ→ZE",
+      "length": 62,
+      "fields": {
+        "ergebnis": 2,
+        "btp_version": 1,
+        "checksum_length": 16,
+        "checksum": "2ad31b7f9dc1a062116179091ed2cda1"
+      },
+      "test_case": null,
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-14-1",
+      "timestamp": "2026-10-02T10:24:03.905Z",
+      "time_s": 3.95138,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AUFRUESTANFORDERUNG",
+      "message_code": "0x0021",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": null,
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-16-1",
+      "timestamp": "2026-10-02T10:24:04.207Z",
+      "time_s": 4.253421,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTBEGINN",
+      "message_code": "0x0022",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": null,
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-16-2",
+      "timestamp": "2026-10-02T10:24:04.207Z",
+      "time_s": 4.253421,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 1,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": null,
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-16-3",
+      "timestamp": "2026-10-02T10:24:04.207Z",
+      "time_s": 4.253421,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTENDE",
+      "message_code": "0x0023",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": null,
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-51-1",
+      "timestamp": "2026-10-02T10:24:52.483Z",
+      "time_s": 52.530012,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0024",
+      "direction": "ZE→AZ",
+      "length": 44,
+      "fields": {
+        "btp_version": 1
+      },
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-53-1",
+      "timestamp": "2026-10-02T10:24:52.784Z",
+      "time_s": 52.830855,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0025",
+      "direction": "AZ→ZE",
+      "length": 62,
+      "fields": {
+        "ergebnis": 2,
+        "btp_version": 1,
+        "checksum_length": 16,
+        "checksum": "2ad31b7f9dc1a062116179091ed2cda1"
+      },
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-54-1",
+      "timestamp": "2026-10-02T10:24:52.785Z",
+      "time_s": 52.831638,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AUFRUESTANFORDERUNG",
+      "message_code": "0x0021",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-56-1",
+      "timestamp": "2026-10-02T10:24:53.086Z",
+      "time_s": 53.132877,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTBEGINN",
+      "message_code": "0x0022",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-56-2",
+      "timestamp": "2026-10-02T10:24:53.086Z",
+      "time_s": 53.132877,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 1,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-56-3",
+      "timestamp": "2026-10-02T10:24:53.086Z",
+      "time_s": 53.132877,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTENDE",
+      "message_code": "0x0023",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-132-1",
+      "timestamp": "2026-10-02T10:25:04.498Z",
+      "time_s": 64.54497,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 2,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 1
+      },
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-133-1",
+      "timestamp": "2026-10-02T10:25:04.502Z",
+      "time_s": 64.548566,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "34W1",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AZGH",
+      "message_code": "0x0003",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-207-1",
+      "timestamp": "2026-10-02T10:25:15.709Z",
+      "time_s": 75.755435,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 2,
+        "grundstellbar": 1,
+        "achszaehlfuellstand": 1
+      },
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-219-1",
+      "timestamp": "2026-10-02T10:25:17.502Z",
+      "time_s": 77.548223,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "34W1",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AZGH",
+      "message_code": "0x0003",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-267-1",
+      "timestamp": "2026-10-02T10:25:24.503Z",
+      "time_s": 84.549483,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "34W1",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AZG",
+      "message_code": "0x0001",
+      "direction": "ZE→AZ",
+      "length": 44,
+      "fields": {
+        "grundstellungsart": 2
+      },
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-268-1",
+      "timestamp": "2026-10-02T10:25:24.798Z",
+      "time_s": 84.84456,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 1,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02283.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-318-1",
+      "timestamp": "2026-10-02T10:26:11.663Z",
+      "time_s": 131.7094,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0024",
+      "direction": "ZE→AZ",
+      "length": 44,
+      "fields": {
+        "btp_version": 1
+      },
+      "test_case": "TC_NPRO.295.02284.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-320-1",
+      "timestamp": "2026-10-02T10:26:11.965Z",
+      "time_s": 132.011423,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0025",
+      "direction": "AZ→ZE",
+      "length": 62,
+      "fields": {
+        "ergebnis": 2,
+        "btp_version": 1,
+        "checksum_length": 16,
+        "checksum": "2ad31b7f9dc1a062116179091ed2cda1"
+      },
+      "test_case": "TC_NPRO.295.02284.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-321-1",
+      "timestamp": "2026-10-02T10:26:11.965Z",
+      "time_s": 132.012154,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AUFRUESTANFORDERUNG",
+      "message_code": "0x0021",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02284.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-323-1",
+      "timestamp": "2026-10-02T10:26:12.267Z",
+      "time_s": 132.313876,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTBEGINN",
+      "message_code": "0x0022",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02284.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-323-2",
+      "timestamp": "2026-10-02T10:26:12.267Z",
+      "time_s": 132.313876,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 1,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02284.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-323-3",
+      "timestamp": "2026-10-02T10:26:12.267Z",
+      "time_s": 132.313876,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTENDE",
+      "message_code": "0x0023",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02284.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-324-1",
+      "timestamp": "2026-10-02T10:26:12.271Z",
+      "time_s": 132.317212,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "34W1",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AZGH",
+      "message_code": "0x0003",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02284.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-375-1",
+      "timestamp": "2026-10-02T10:26:59.634Z",
+      "time_s": 179.681098,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0024",
+      "direction": "ZE→AZ",
+      "length": 44,
+      "fields": {
+        "btp_version": 1
+      },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-377-1",
+      "timestamp": "2026-10-02T10:26:59.937Z",
+      "time_s": 179.984128,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0025",
+      "direction": "AZ→ZE",
+      "length": 62,
+      "fields": {
+        "ergebnis": 2,
+        "btp_version": 1,
+        "checksum_length": 16,
+        "checksum": "2ad31b7f9dc1a062116179091ed2cda1"
+      },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-378-1",
+      "timestamp": "2026-10-02T10:26:59.938Z",
+      "time_s": 179.98472,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AUFRUESTANFORDERUNG",
+      "message_code": "0x0021",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-380-1",
+      "timestamp": "2026-10-02T10:27:00.241Z",
+      "time_s": 180.287372,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTBEGINN",
+      "message_code": "0x0022",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-380-2",
+      "timestamp": "2026-10-02T10:27:00.241Z",
+      "time_s": 180.287372,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 1,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "FAILED",
+      "error_reason": "Message Length Error"
+    },
+    {
+      "message_id": "frame-380-3",
+      "timestamp": "2026-10-02T10:27:00.241Z",
+      "time_s": 180.287372,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTENDE",
+      "message_code": "0x0023",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-423-1",
+      "timestamp": "2026-10-02T10:27:06.804Z",
+      "time_s": 186.850936,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 2,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "FAILED",
+      "error_reason": "Device Disturbed"
+    },
+    {
+      "message_id": "frame-425-1",
+      "timestamp": "2026-10-02T10:27:06.906Z",
+      "time_s": 186.953046,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 3,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "FAILED",
+      "error_reason": "Device Disturbed"
+    },
+    {
+      "message_id": "frame-504-1",
+      "timestamp": "2026-10-02T10:27:18.823Z",
+      "time_s": 198.86993,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 3,
+        "grundstellbar": 1,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-837-1",
+      "timestamp": "2026-10-02T10:28:08.815Z",
+      "time_s": 248.861888,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 3,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "FAILED",
+      "error_reason": "Precondition Not Reached"
+    },
+    {
+      "message_id": "frame-1222-1",
+      "timestamp": "2026-10-02T10:29:06.743Z",
+      "time_s": 306.789942,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "34W1",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AZGH",
+      "message_code": "0x0003",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.02288.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-1271-1",
+      "timestamp": "2026-10-02T10:29:53.650Z",
+      "time_s": 353.696945,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0024",
+      "direction": "ZE→AZ",
+      "length": 44,
+      "fields": {
+        "btp_version": 1
+      },
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-1273-1",
+      "timestamp": "2026-10-02T10:29:53.953Z",
+      "time_s": 353.999231,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_BTP_VERSIONSABGLEICH",
+      "message_code": "0x0025",
+      "direction": "AZ→ZE",
+      "length": 62,
+      "fields": {
+        "ergebnis": 2,
+        "btp_version": 1,
+        "checksum_length": 16,
+        "checksum": "2ad31b7f9dc1a062116179091ed2cda1"
+      },
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-1274-1",
+      "timestamp": "2026-10-02T10:29:53.954Z",
+      "time_s": 354.000409,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "DETHMM AZA34##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AUFRUESTANFORDERUNG",
+      "message_code": "0x0021",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-1276-1",
+      "timestamp": "2026-10-02T10:29:54.256Z",
+      "time_s": 354.302648,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTBEGINN",
+      "message_code": "0x0022",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-1276-2",
+      "timestamp": "2026-10-02T10:29:54.256Z",
+      "time_s": 354.302648,
+      "sender": "34W1",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_GFMA_BELEGUNGSZUSTAND",
+      "message_code": "0x0007",
+      "direction": "AZ→ZE",
+      "length": 47,
+      "fields": {
+        "belegung": 3,
+        "grundstellbar": 0,
+        "achszaehlfuellstand": 0
+      },
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "FAILED",
+      "error_reason": "Cascade Failure; Device Disturbed; Precondition Not Reached"
+    },
+    {
+      "message_id": "frame-1276-3",
+      "timestamp": "2026-10-02T10:29:54.256Z",
+      "time_s": 354.302648,
+      "sender": "DETHMM AZA34##0001",
+      "receiver": "DETHMM ZE 35##0001",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "MELDUNG_AUFRUESTENDE",
+      "message_code": "0x0023",
+      "direction": "AZ→ZE",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "OK",
+      "error_reason": null
+    },
+    {
+      "message_id": "frame-1458-1",
+      "timestamp": "2026-10-02T10:30:21.566Z",
+      "time_s": 381.612761,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "34W1",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AZGH",
+      "message_code": "0x0003",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "WARNING",
+      "error_reason": "Manual Intervention"
+    },
+    {
+      "message_id": "frame-1523-1",
+      "timestamp": "2026-10-02T10:30:31.341Z",
+      "time_s": 391.387864,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "34W1",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AZG",
+      "message_code": "0x0001",
+      "direction": "ZE→AZ",
+      "length": 44,
+      "fields": {
+        "grundstellungsart": 2
+      },
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "WARNING",
+      "error_reason": "Manual Intervention"
+    },
+    {
+      "message_id": "frame-2117-1",
+      "timestamp": "2026-10-02T10:32:00.758Z",
+      "time_s": 480.804718,
+      "sender": "DETHMM ZE 35##0001",
+      "receiver": "34W1",
+      "protocol": "SCI-TDS BL5 over RaSTA",
+      "message_type": "KOMMANDO_AZGH",
+      "message_code": "0x0003",
+      "direction": "ZE→AZ",
+      "length": 43,
+      "fields": {},
+      "test_case": "TC_NPRO.295.00525.01",
+      "status": "OK",
+      "error_reason": null
+    }
+  ],
+  "failure_findings": [
+    {
+      "message_id": "frame-380-2",
+      "expected_length": 48,
+      "actual_length": 47,
+      "result": "Message Length Error",
+      "test_case": "TC_NPRO.295.02288.01",
+      "timestamp": "2026-10-02T10:27:00.241Z",
+      "time_s": 180.287372,
+      "category": "incorrect_length",
+      "description": "Test_Description step 2 expects a 48-byte MELDUNG_GFMA_BELEGUNGSZUSTAND, the device sends 47 bytes: the step cannot pass",
+      "confidence": 0.9,
+      "evidence": [
+        "TC_NPRO.295.02288.01_xcel.txt row 1",
+        "RealOCWorking_TDS_21026.pcapng frame 380 telegram 2"
+      ]
+    },
+    {
+      "message_id": "frame-423-1",
+      "expected_length": null,
+      "actual_length": null,
+      "result": "Device Disturbed",
+      "test_case": "TC_NPRO.295.02288.01",
+      "timestamp": "2026-10-02T10:27:06.906Z",
+      "time_s": 186.953046,
+      "category": "device_disturbed",
+      "description": "34W1 became disturbed (Belegungszustand 3) 102 ms after an occupied report with Achszählfüllstand 0x0000; reset possible for 50 s but no AZG/AZGH sent",
+      "confidence": 0.95,
+      "evidence": [
+        "RealOCWorking_TDS_21026.pcapng frame 423 telegram 1",
+        "RealOCWorking_TDS_21026.pcapng frame 425 telegram 1"
+      ]
+    },
+    {
+      "message_id": "frame-837-1",
+      "expected_length": null,
+      "actual_length": null,
+      "result": "Precondition Not Reached",
+      "test_case": "TC_NPRO.295.02288.01",
+      "timestamp": "2026-10-02T10:29:00.241Z",
+      "time_s": 300.287888,
+      "category": "precondition_not_reached",
+      "description": "Precondition not reached: target Belegung/Grundstellbarkeit 2/0 (Test_Description), actual 3/0",
+      "confidence": 1.0,
+      "evidence": [
+        "Real_SCI-TDS_2026-10-02_12-24-11.pdf page 56",
+        "RealOCWorking_TDS_21026.pcapng frame 837 telegram 1"
+      ]
+    },
+    {
+      "message_id": "frame-1276-2",
+      "expected_length": null,
+      "actual_length": null,
+      "result": "Cascade Failure",
+      "test_case": "TC_NPRO.295.00525.01",
+      "timestamp": "2026-10-02T10:29:13.442Z",
+      "time_s": 313.488888,
+      "category": "cascade_failure",
+      "description": "Started in state 3/0 left by TC_NPRO.295.02288.01(O) (its cleanup failed)",
+      "confidence": 0.9,
+      "evidence": [
+        "RealOCWorking_TDS_21026.pcapng frame 1276 telegram 2",
+        "Real_SCI-TDS_2026-10-02_12-24-11.pdf page 58"
+      ]
+    },
+    {
+      "message_id": "frame-1276-2",
+      "expected_length": null,
+      "actual_length": null,
+      "result": "Device Disturbed",
+      "test_case": "TC_NPRO.295.00525.01",
+      "timestamp": "2026-10-02T10:29:54.256Z",
+      "time_s": 354.302648,
+      "category": "device_disturbed",
+      "description": "34W1 still disturbed (Belegungszustand 3) at 354.303 s, inherited from earlier",
+      "confidence": 0.95,
+      "evidence": [
+        "RealOCWorking_TDS_21026.pcapng frame 1276 telegram 2"
+      ]
+    },
+    {
+      "message_id": "frame-1276-2",
+      "expected_length": null,
+      "actual_length": null,
+      "result": "Precondition Not Reached",
+      "test_case": "TC_NPRO.295.00525.01",
+      "timestamp": "2026-10-02T10:31:54.256Z",
+      "time_s": 474.302648,
+      "category": "precondition_not_reached",
+      "description": "Precondition not reached: target Belegung/Grundstellbarkeit 1/0 (Test_Description), actual 3/0",
+      "confidence": 1.0,
+      "evidence": [
+        "Real_SCI-TDS_2026-10-02_12-24-11.pdf page 63",
+        "RealOCWorking_TDS_21026.pcapng frame 1276 telegram 2"
+      ]
+    },
+    {
+      "message_id": null,
+      "expected_length": null,
+      "actual_length": null,
+      "result": "Test Aborted",
+      "test_case": "TC_NPRO.295.00522.01",
+      "timestamp": "2026-10-02T10:32:08.274Z",
+      "time_s": 488.321,
+      "category": "test_aborted",
+      "description": "Test execution stopped: test unit stopped by the user",
+      "confidence": 1.0,
+      "evidence": [
+        "TDS_Report_21026.txt line 38",
+        "Real_SCI-TDS_2026-10-02_12-24-11.pdf page 65",
+        "RealOCWorking_TDS_21026.blf object 11095",
+        "Real_SCI-TDS_2026-10-02_12-24-11.pdf page 65"
+      ]
+    }
+  ],
+  "data_comparisons": [
+    {
+      "field": "Test verdict",
+      "expected": "PASSED",
+      "actual": "PASSED",
+      "result": "OK",
+      "test_case": "TC_NPRO.295.02283.01"
+    },
+    {
+      "field": "Test verdict",
+      "expected": "PASSED",
+      "actual": "PASSED",
+      "result": "OK",
+      "test_case": "TC_NPRO.295.02284.01"
+    },
+    {
+      "field": "Test verdict",
+      "expected": "PASSED",
+      "actual": "FAILED",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.02288.01"
+    },
+    {
+      "field": "Test verdict",
+      "expected": "PASSED",
+      "actual": "FAILED",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.00525.01"
+    },
+    {
+      "field": "Test verdict",
+      "expected": "PASSED",
+      "actual": "INCONCLUSIVE",
+      "result": "Warning",
+      "test_case": "TC_NPRO.295.00522.01"
+    },
+    {
+      "field": "Length MELDUNG_GFMA_BELEGUNGSZUSTAND (Test_Description step 2)",
+      "expected": "48",
+      "actual": "47",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.02288.01"
+    },
+    {
+      "field": "GFM-A 34W1 Belegungszustand",
+      "expected": "not 3 (gestört)",
+      "actual": "3 (gestört) at 186.953 s",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.02288.01"
+    },
+    {
+      "field": "GFM-A state for the precondition",
+      "expected": "2/0 (belegt, nicht grundstellbar)",
+      "actual": "3/0 (gestört, nicht grundstellbar)",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.02288.01"
+    },
+    {
+      "field": "State at test start",
+      "expected": "defined start state",
+      "actual": "left by TC_NPRO.295.02288.01",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.00525.01"
+    },
+    {
+      "field": "Manual panel commands",
+      "expected": "none (test instruction)",
+      "actual": "Manual KOMMANDO_AZGH",
+      "result": "Warning",
+      "test_case": "TC_NPRO.295.00525.01"
+    },
+    {
+      "field": "Manual panel commands",
+      "expected": "none (test instruction)",
+      "actual": "Manual KOMMANDO_AZG",
+      "result": "Warning",
+      "test_case": "TC_NPRO.295.00525.01"
+    },
+    {
+      "field": "GFM-A state for the precondition",
+      "expected": "1/0 (frei, nicht grundstellbar)",
+      "actual": "3/0 (gestört, nicht grundstellbar)",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.00525.01"
+    },
+    {
+      "field": "Test execution",
+      "expected": "completed",
+      "actual": "stopped by the user",
+      "result": "Error",
+      "test_case": "TC_NPRO.295.00522.01"
+    },
+    {
+      "field": "Test case version",
+      "expected": "7",
+      "actual": "5",
+      "result": "Warning",
+      "test_case": "TC_NPRO.295.02283.01"
+    },
+    {
+      "field": "Test_Description value vs. BL5",
+      "expected": "valid BL5 value",
+      "actual": "BTP[44] = 0x02 is not a valid BL5 grundstellbar",
+      "result": "Warning",
+      "test_case": "TC_NPRO.295.02288.01"
+    },
+    {
+      "field": "Test case version",
+      "expected": "4",
+      "actual": "5",
+      "result": "Warning",
+      "test_case": "TC_NPRO.295.02288.01"
+    },
+    {
+      "field": "RaSTA message gap",
+      "expected": "<= 750 ms",
+      "actual": "max 306 ms",
+      "result": "OK",
+      "test_case": null
+    },
+    {
+      "field": "RaSTA disconnect reason",
+      "expected": "0 (user request)",
+      "actual": "0",
+      "result": "OK",
+      "test_case": null
+    },
+    {
+      "field": "RaSTA sequence numbers",
+      "expected": "no gaps or repeats",
+      "actual": "0 problems",
+      "result": "OK",
+      "test_case": null
+    },
+    {
+      "field": "Telegram length vs. BL5 layout",
+      "expected": "all telegrams",
+      "actual": "45/45 match",
+      "result": "OK",
+      "test_case": null
+    },
+    {
+      "field": "Field values vs. BL5 ranges",
+      "expected": "all in range",
+      "actual": "0 out of range",
+      "result": "OK",
+      "test_case": null
+    },
+    {
+      "field": "Start-up responses",
+      "expected": "within 500 ms",
+      "actual": "0 late or missing",
+      "result": "OK",
+      "test_case": null
+    },
+    {
+      "field": "Start-up message order",
+      "expected": "version check → Aufrüstung",
+      "actual": "0 violations",
+      "result": "OK",
+      "test_case": null
+    },
+    {
+      "field": "Time alignment pcapng → CANoe",
+      "expected": "spread <= 5 ms",
+      "actual": "frame_match, spread 0.001 ms",
+      "result": "OK",
+      "test_case": null
+    }
+  ]
+}

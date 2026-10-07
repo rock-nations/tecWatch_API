@@ -22,6 +22,7 @@ async def lifespan(app: FastAPI):
     logger.info(f" Target Server Base URL: {config.server.base_url}")
     logger.info(f" Status Endpoint:        {config.api.status_endpoint}")
     logger.info(f" Analysis Endpoint:      {config.api.result_endpoint}")
+    logger.info(f" Analysis Report File:   {config.analysis.resolved_report_path}")
     logger.info(f" Max Payload Bytes:      {config.api.max_payload_bytes}")
     logger.info("==================================================")
     yield

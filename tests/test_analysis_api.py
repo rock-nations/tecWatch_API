@@ -1,113 +1,258 @@
+import json
+from pathlib import Path
 import pytest
 import defusedxml.ElementTree as DefusedET
+from config.settings import ConfigManager
 from src.services.client import UpstreamConnectionError
+
+EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "docs" / "examples"
+
+
+def _shipped_report_path():
+    return ConfigManager.get_instance().config.analysis.resolved_report_path
+
+
+def _assert_invalid_report(response, field, fragment):
+    assert response.status_code == 500
+    data = response.json()
+    assert data["error"] == "Invalid Analysis Report"
+    assert any(
+        e["field"].startswith(field) and fragment in (e["type"] + " " + e["message"])
+        for e in data["validation_errors"]
+    ), data["validation_errors"]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/analysis: read the report file, validate it, return it unchanged
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_analysis_returns_shipped_report_unchanged(client):
+    expected = json.loads(_shipped_report_path().read_text(encoding="utf-8"))
+
+    response = await client.get("/api/analysis")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    assert response.json() == expected
 
 
 @pytest.mark.asyncio
-async def test_get_analysis_list_and_filter(client):
-    # Test listing all analysis items
+async def test_get_analysis_returns_configured_report(client, use_report, valid_report):
+    use_report(valid_report)
+
     response = await client.get("/api/analysis")
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    first = data[0]
-    assert "analysis_id" in first
-    assert "trace_messages" in first
-    assert "failure_findings" in first
-    assert "data_comparisons" in first
-
-    # Test filtering by result_status=FAILED
-    failed_res = await client.get("/api/analysis?result_status=FAILED")
-    assert failed_res.status_code == 200
-    failed_data = failed_res.json()
-    assert all(item["result_status"] == "FAILED" for item in failed_data)
-
-    # Test search query
-    search_res = await client.get("/api/analysis?search=CAN")
-    assert search_res.status_code == 200
-    search_data = search_res.json()
-    assert len(search_data) >= 1
+    assert data == valid_report
+    assert data["failure_findings"][0]["expected_length"] == 48
+    assert data["failure_findings"][0]["actual_length"] == 47
+    assert data["trace_messages"][0]["direction"] == "ZE→AZ"
 
 
 @pytest.mark.asyncio
-async def test_get_analysis_detail_success_and_not_found(client):
-    # Test valid item
-    response = await client.get("/api/analysis/TRACE-RUN-1001")
+async def test_get_analysis_xml(client, use_report, valid_report):
+    use_report(valid_report)
+
+    response = await client.get("/api/analysis", headers={"Accept": "application/xml"})
     assert response.status_code == 200
-    data = response.json()
-    assert data["analysis_id"] == "TRACE-RUN-1001"
-    assert len(data["failure_findings"]) >= 1
-    assert data["failure_findings"][0]["message_id"] == "127"
-    assert data["failure_findings"][0]["expected_length"] == 64
-    assert data["failure_findings"][0]["actual_length"] == 60
-    assert data["failure_findings"][0]["result"] == "Message Length Error"
+    assert response.headers["content-type"].startswith("application/xml")
 
-    # Test 404 for unknown item
-    not_found = await client.get("/api/analysis/NON-EXISTENT-ID")
-    assert not_found.status_code == 404
+    root = DefusedET.fromstring(response.content)
+    assert root.tag == "AnalysisReport"
+    assert root.find("analysis_id").text == "TRACE-RUN-TEST-0001"
+    assert len(root.findall("trace_messages")) == 2
+    assert root.find("failure_findings/expected_length").text == "48"
 
 
 @pytest.mark.asyncio
-async def test_post_analysis_json_success(client):
-    payload = {
-        "analysis_id": "TRACE-TEST-2002",
-        "device_id": "TW-55",
-        "timestamp": "2026-10-03T12:00:00Z",
-        "analysis_type": "TRACE_COMMUNICATION",
-        "result_status": "PASSED",
-        "summary": "All communication packets matched expected schema.",
-        "trace_messages": [
-            {
-                "timestamp": "2026-10-03T12:00:00Z",
-                "sender": "NODE_A",
-                "receiver": "NODE_B",
-                "protocol": "TCP",
-                "message_type": "HANDSHAKE",
-                "status": "OK",
-                "error_reason": None,
-            }
-        ],
-        "failure_findings": [],
-        "data_comparisons": [
-            {"field": "Status", "expected": "READY", "actual": "READY", "result": "OK"}
-        ],
-    }
+async def test_get_analysis_rereads_report_on_every_request(client, use_report, valid_report):
+    report_file = use_report(valid_report)
+    first = await client.get("/api/analysis")
+    assert first.json()["summary"] == valid_report["summary"]
 
+    valid_report["summary"] = "Regenerated by the analysis component."
+    report_file.write_text(json.dumps(valid_report), encoding="utf-8")
+
+    second = await client.get("/api/analysis")
+    assert second.status_code == 200
+    assert second.json()["summary"] == "Regenerated by the analysis component."
+
+
+@pytest.mark.asyncio
+async def test_get_analysis_report_file_missing(client, tmp_path):
+    ConfigManager.get_instance().config.analysis.report_path = str(tmp_path / "missing.json")
+
+    response = await client.get("/api/analysis")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["error"] == "Analysis Report Not Found"
+    assert "missing.json" in data["detail"]
+
+
+@pytest.mark.asyncio
+async def test_get_analysis_report_too_large(client, use_report, valid_report):
+    ConfigManager.get_instance().config.analysis.max_report_bytes = 1024
+    use_report(valid_report)  # ~3 KB
+
+    response = await client.get("/api/analysis")
+    assert response.status_code == 500
+    data = response.json()
+    assert data["error"] == "Invalid Analysis Report"
+    assert "exceeds the configured size limit" in data["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content, fragment",
+    [
+        pytest.param('{"analysis_id": "TRACE-1", ', "Malformed JSON syntax", id="malformed-json"),
+        pytest.param(b'{"analysis_id": "\xff\xfe"}', "not valid UTF-8", id="not-utf8"),
+        pytest.param("[]", "must be a JSON object", id="json-array"),
+    ],
+)
+async def test_get_analysis_invalid_message_format(client, use_report, content, fragment):
+    use_report(content)
+
+    response = await client.get("/api/analysis")
+    assert response.status_code == 500
+    data = response.json()
+    assert data["error"] == "Invalid Analysis Report"
+    assert fragment in data["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutate, field, fragment",
+    [
+        pytest.param(lambda r: r.pop("summary"), "summary", "missing", id="mandatory-field"),
+        pytest.param(lambda r: r["trace_messages"][1].pop("length"), "trace_messages -> 1 -> length", "missing", id="nested-mandatory-field"),
+        pytest.param(lambda r: r["trace_messages"][1].update(length="47"), "trace_messages -> 1 -> length", "int_type", id="numeric-string"),
+        pytest.param(lambda r: r["failure_findings"][0].update(confidence="high"), "failure_findings -> 0 -> confidence", "float_type", id="wrong-type"),
+        pytest.param(lambda r: r.update(timestamp=1759400639), "timestamp", "ISO 8601", id="epoch-timestamp"),
+        pytest.param(lambda r: r.update(trace_messages={}), "trace_messages", "list_type", id="object-instead-of-list"),
+        pytest.param(lambda r: r["trace_messages"][0]["fields"].update(raw=[1, 2]), "trace_messages -> 0 -> fields -> raw", "int_type", id="non-scalar-field-value"),
+        pytest.param(lambda r: r.update(unexpected="x"), "unexpected", "extra_forbidden", id="unexpected-field"),
+        pytest.param(lambda r: r["data_comparisons"][0].update(note="x"), "data_comparisons -> 0 -> note", "extra_forbidden", id="unexpected-nested-field"),
+        pytest.param(lambda r: r.update(analysis_id="A"), "analysis_id", "string_too_short", id="too-short"),
+        pytest.param(lambda r: r.update(summary="X" * 4097), "summary", "string_too_long", id="too-long"),
+        pytest.param(lambda r: r["trace_messages"][0].update(status="BROKEN"), "trace_messages -> 0 -> status", "literal_error", id="unknown-status"),
+        pytest.param(lambda r: r["trace_messages"][0].update(message_code="24"), "trace_messages -> 0 -> message_code", "string_pattern_mismatch", id="message-code-format"),
+        pytest.param(lambda r: r["trace_messages"][0].update(length=-1), "trace_messages -> 0 -> length", "greater_than_equal", id="negative-length"),
+        pytest.param(lambda r: r["failure_findings"][0].update(confidence=1.5), "failure_findings -> 0 -> confidence", "less_than_equal", id="confidence-range"),
+    ],
+)
+async def test_get_analysis_schema_violation(client, use_report, valid_report, mutate, field, fragment):
+    mutate(valid_report)
+    use_report(valid_report)
+
+    _assert_invalid_report(await client.get("/api/analysis"), field, fragment)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutate, field, fragment",
+    [
+        pytest.param(lambda r: r["trace_messages"][1].update(message_id="frame-11-1"), "trace_messages", "duplicated: frame-11-1", id="duplicate-message-id"),
+        pytest.param(lambda r: r["failure_findings"][0].update(message_id="frame-999-9"), "failure_findings", "does not match any trace message", id="unknown-message-reference"),
+        pytest.param(lambda r: r["failure_findings"][0].update(actual_length=46), "failure_findings", "differs from the length 47", id="length-mismatch"),
+        pytest.param(lambda r: r["failure_findings"][0].update(actual_length=None), "failure_findings -> 0", "both be set or both be null", id="unpaired-lengths"),
+    ],
+)
+async def test_get_analysis_inconsistent_report(client, use_report, valid_report, mutate, field, fragment):
+    mutate(valid_report)
+    use_report(valid_report)
+
+    _assert_invalid_report(await client.get("/api/analysis"), field, fragment)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/analysis: analysis components submit results for the target server
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_post_analysis_json_success(client, valid_report):
     response = await client.post(
         "/api/analysis",
-        json=payload,
+        json=valid_report,
         headers={"Content-Type": "application/json", "Accept": "application/json"},
     )
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
     data = response.json()
     assert data["status"] == "SUCCESS"
-    assert data["analysis_id"] == "TRACE-TEST-2002"
+    assert data["analysis_id"] == "TRACE-RUN-TEST-0001"
     assert "processed_at" in data
 
 
 @pytest.mark.asyncio
-async def test_post_analysis_xml_success(client):
+async def test_post_analysis_accepts_shipped_report(client):
+    response = await client.post(
+        "/api/analysis",
+        content=_shipped_report_path().read_bytes(),
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 200
+    assert response.json()["analysis_id"] == "TRACE-RUN-20261002-102359"
+
+
+@pytest.mark.asyncio
+async def test_post_analysis_xml_success(client, monkeypatch):
+    from src.services.client import TecWatchClient
+
+    forwarded = {}
+
+    async def capture_send(self, payload):
+        forwarded.update(payload)
+        return {"status": "SUCCESS"}
+
+    monkeypatch.setattr(TecWatchClient, "send_analysis_result", capture_send)
+
     xml_payload = """<?xml version="1.0" encoding="UTF-8"?>
 <AnalysisResult>
   <analysis_id>TRACE-XML-3003</analysis_id>
-  <device_id>TW-99</device_id>
-  <timestamp>2026-10-03T12:10:00Z</timestamp>
+  <device_id>DETHMM AZA34##0001</device_id>
+  <timestamp>2026-10-02T10:23:59.953Z</timestamp>
   <analysis_type>TRACE_COMMUNICATION</analysis_type>
   <result_status>FAILED</result_status>
-  <summary>Vibration frequencies steady under test load.</summary>
+  <summary>MELDUNG_GFMA_BELEGUNGSZUSTAND is one byte short.</summary>
+  <trace_messages>
+    <message_id>frame-380-2</message_id>
+    <timestamp>2026-10-02T10:27:00.241Z</timestamp>
+    <time_s>180.287372</time_s>
+    <sender>34W1</sender>
+    <receiver>DETHMM ZE 35##0001</receiver>
+    <protocol>SCI-TDS BL5 over RaSTA</protocol>
+    <message_type>MELDUNG_GFMA_BELEGUNGSZUSTAND</message_type>
+    <message_code>0x0007</message_code>
+    <direction>AZ→ZE</direction>
+    <length>47</length>
+    <fields>
+      <belegung>1</belegung>
+      <grundstellbar>0</grundstellbar>
+    </fields>
+    <test_case>TC_NPRO.295.02288.01</test_case>
+    <status>FAILED</status>
+    <error_reason>Message Length Error</error_reason>
+  </trace_messages>
   <failure_findings>
-    <message_id>127</message_id>
-    <expected_length>64</expected_length>
-    <actual_length>60</actual_length>
+    <message_id>frame-380-2</message_id>
+    <expected_length>48</expected_length>
+    <actual_length>47</actual_length>
     <result>Message Length Error</result>
+    <test_case>TC_NPRO.295.02288.01</test_case>
+    <timestamp>2026-10-02T10:27:00.241Z</timestamp>
+    <time_s>180.287372</time_s>
+    <category>incorrect_length</category>
+    <description>The device sends 47 instead of 48 bytes.</description>
+    <confidence>0.9</confidence>
+    <evidence>RealOCWorking_TDS_21026.pcapng frame 380 telegram 2</evidence>
   </failure_findings>
   <data_comparisons>
-    <field>Length</field>
-    <expected>64</expected>
-    <actual>60</actual>
-    <result>Error</result>
+    <field>RaSTA message gap</field>
+    <expected>&lt;= 750 ms</expected>
+    <actual>max 306 ms</actual>
+    <result>OK</result>
+    <test_case/>
   </data_comparisons>
 </AnalysisResult>
 """
@@ -124,6 +269,40 @@ async def test_post_analysis_xml_success(client):
     assert root.tag == "AnalysisResultResponse"
     assert root.find("status").text == "SUCCESS"
     assert root.find("analysis_id").text == "TRACE-XML-3003"
+
+    # XML text is converted into the report's JSON types before forwarding
+    assert forwarded["trace_messages"][0]["length"] == 47
+    assert forwarded["trace_messages"][0]["fields"] == {"belegung": "1", "grundstellbar": "0"}
+    assert forwarded["failure_findings"][0]["confidence"] == 0.9
+    assert forwarded["failure_findings"][0]["evidence"] == ["RealOCWorking_TDS_21026.pcapng frame 380 telegram 2"]
+    assert forwarded["data_comparisons"][0]["test_case"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "example_file, content_type",
+    [("analysis_request.json", "application/json"), ("analysis_request.xml", "application/xml")],
+)
+async def test_post_analysis_documented_examples(client, example_file, content_type):
+    response = await client.post(
+        "/api/analysis",
+        content=(EXAMPLES_DIR / example_file).read_bytes(),
+        headers={"Content-Type": content_type},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["analysis_id"] == "TRACE-RUN-20261002-102359"
+
+
+@pytest.mark.asyncio
+async def test_post_analysis_does_not_change_served_report(client, use_report, valid_report):
+    use_report(valid_report)
+    posted = {**valid_report, "analysis_id": "TRACE-POSTED-0002"}
+
+    post_response = await client.post("/api/analysis", json=posted)
+    assert post_response.status_code == 200
+
+    get_response = await client.get("/api/analysis")
+    assert get_response.json()["analysis_id"] == "TRACE-RUN-TEST-0001"
 
 
 @pytest.mark.asyncio
@@ -159,13 +338,3 @@ async def test_post_analysis_upstream_failure(client, monkeypatch):
     data = response.json()
     assert data["error"] == "Bad Gateway"
     assert "DBLTAS server offline" in data["detail"]
-
-
-@pytest.mark.asyncio
-async def test_post_analysis_reset(client):
-    response = await client.post("/api/analysis/reset")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "SUCCESS"
-    assert data["total_runs"] >= 1
-

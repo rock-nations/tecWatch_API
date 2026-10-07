@@ -17,7 +17,7 @@ The **tecWatch API** is a high-performance, configurable API layer designed for 
 - **DBLTAS Web GUI Ready**:
   - Pre-configured CORS for browser clients.
   - Interactive Swagger UI at `/docs` and ReDoc at `/redoc`.
-  - Comprehensive trace analysis endpoints supporting dashboard listing, search, filtering, and detailed failure-analysis views.
+  - Validated analysis report endpoint providing trace messages, failure findings, and data comparisons for the dashboard.
 
 ---
 
@@ -25,11 +25,17 @@ The **tecWatch API** is a high-performance, configurable API layer designed for 
 
 ```mermaid
 flowchart LR
-    GUI["DBLTAS Web GUI"] <-->|GET /api/status\nGET /api/analysis\nPOST /api/analysis| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
+    GUI["DBLTAS Web GUI"] -->|GET /api/status\nGET /api/analysis| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
+    Report[("Analysis report JSON\n(analysis.report_path)")] -->|read + validate\non every GET| Gateway
     Analysis["Analysis Components"] -->|POST /api/analysis\n(JSON or XML)| Gateway
-    Gateway <-->|Dynamic Upstream\nhttp://host:port| Server["Configured Target Server\n(e.g., 192.168.1.10:8080)"]
+    Gateway <-->|Dynamic Upstream\nhttp://host:port| Server["Configured tecWatch / Target Server\n(e.g., 192.168.1.10:8080)"]
     Config["config.yaml / Env Vars"] -.->|Dynamic Settings| Gateway
 ```
+
+1. On initial load the Web GUI calls `GET /api/status` and `GET /api/analysis`.
+2. `GET /api/status` is proxied to the configured tecWatch server and validated.
+3. `GET /api/analysis` reads the configured analysis report file (produced by the data-analysis component), validates it, and returns it unchanged.
+4. Analysis components may submit results with `POST /api/analysis`; they are validated and forwarded to the configured target server. The Web GUI never posts analysis data.
 
 ---
 
@@ -48,6 +54,10 @@ api:
   result_endpoint: "/api/analysis"    # Endpoint to send analysis results
   max_payload_bytes: 1048576          # 1 MB maximum allowed request size
 
+analysis:
+  report_path: "data/data-analysis-report.json"  # Report served by GET /api/analysis (relative to the backend folder)
+  max_report_bytes: 1048576                       # 1 MB maximum report length
+
 gateway:
   listen_host: "0.0.0.0"     # Interface where this API binds
   listen_port: 8000          # Port where this API listens
@@ -61,6 +71,7 @@ Configuration values can also be set via environment variables without touching 
 - `TECWATCH_SERVER_PORT`: Overrides `server.port`
 - `TECWATCH_STATUS_ENDPOINT`: Overrides `api.status_endpoint`
 - `TECWATCH_RESULT_ENDPOINT`: Overrides `api.result_endpoint`
+- `TECWATCH_ANALYSIS_REPORT_PATH`: Overrides `analysis.report_path`
 
 ### Live Configuration Reload
 You can reload configuration at runtime without restarting the service by issuing:
@@ -121,8 +132,50 @@ Content-Type: application/xml
 
 ---
 
-### 4.2 POST Analysis Result API (`/api/analysis`)
-Accepts trace-analysis results in JSON or XML format. Validates message length, mandatory fields, data types, and rejects unexpected content. Forwards validated data to the target server and stores it for GUI queries.
+### 4.2 GET Analysis Report API (`/api/analysis`)
+Called by the DBLTAS Web GUI on initial load. Reads the configured analysis report file (`analysis.report_path`), validates it (message length, message format, mandatory fields, data types, unexpected content, consistency) and returns it **unchanged**. The file is read on every request, so a regenerated report is served without restarting the API.
+
+- **URL**: `/api/analysis`
+- **Method**: `GET`
+- **Supported Headers**:
+  - `Accept`: `application/json` (default) or `application/xml`
+
+#### Request Example:
+```http
+GET /api/analysis HTTP/1.1
+Host: localhost:8000
+Accept: application/json
+```
+
+#### JSON Response (shortened, full example: `data/data-analysis-report.json`):
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "analysis_id": "TRACE-RUN-20261002-102359",
+  "device_id": "DETHMM AZA34##0001",
+  "timestamp": "2026-10-02T10:23:59.953Z",
+  "analysis_type": "TRACE_COMMUNICATION",
+  "result_status": "FAILED",
+  "summary": "2 of 5 test cases failed. ...",
+  "trace_messages": [ { "message_id": "frame-380-2", "length": 47, "status": "FAILED", "error_reason": "Message Length Error", ... } ],
+  "failure_findings": [ { "message_id": "frame-380-2", "expected_length": 48, "actual_length": 47, "result": "Message Length Error", ... } ],
+  "data_comparisons": [ { "field": "Test verdict", "expected": "PASSED", "actual": "FAILED", "result": "Error", "test_case": "TC_NPRO.295.02288.01" } ]
+}
+```
+
+#### Error Responses:
+| Situation | Status | `error` |
+| :--- | :--- | :--- |
+| Report file does not exist | `404 Not Found` | `Analysis Report Not Found` |
+| Report too large, unreadable, not UTF-8, malformed JSON, not a JSON object | `500 Internal Server Error` | `Invalid Analysis Report` |
+| Report violates the schema (see section 5) | `500 Internal Server Error` | `Invalid Analysis Report` (+ `validation_errors`) |
+
+---
+
+### 4.3 POST Analysis Result API (`/api/analysis`)
+Lets analysis components submit a result in the analysis report format (section 5), as JSON or XML. Validates message length, mandatory fields, data types, and rejects unexpected content, then forwards the validated result to the configured target server (`server` + `api.result_endpoint`). A posted result does not replace the report served by `GET /api/analysis`, and the Web GUI does not call this endpoint.
 
 - **URL**: `/api/analysis`
 - **Method**: `POST`
@@ -130,60 +183,17 @@ Accepts trace-analysis results in JSON or XML format. Validates message length, 
   - `Content-Type`: `application/json` or `application/xml`
   - `Accept`: `application/json` or `application/xml`
 
-#### JSON Request Example:
+#### Request Examples:
+- JSON: [`examples/analysis_request.json`](examples/analysis_request.json)
+- XML: [`examples/analysis_request.xml`](examples/analysis_request.xml) (repeated elements form lists, empty elements such as `<test_case/>` mean `null`; values are converted to the declared types)
+
 ```http
 POST /api/analysis HTTP/1.1
 Host: localhost:8000
 Content-Type: application/json
 Accept: application/json
 
-{
-  "analysis_id": "TRACE-RUN-1001",
-  "device_id": "TW-NODE-01",
-  "timestamp": "2026-10-03T12:00:00Z",
-  "analysis_type": "TRACE_COMMUNICATION",
-  "result_status": "FAILED",
-  "summary": "Message length error detected on CAN bus packet ID 127.",
-  "trace_messages": [
-    {
-      "timestamp": "2026-10-03T12:00:00Z",
-      "sender": "ECU_ENGINE",
-      "receiver": "TECWATCH_RECORDER",
-      "protocol": "CAN",
-      "message_type": "TELEMETRY",
-      "status": "FAILED",
-      "error_reason": "Message Length Error"
-    }
-  ],
-  "failure_findings": [
-    {
-      "message_id": "127",
-      "expected_length": 64,
-      "actual_length": 60,
-      "result": "Message Length Error"
-    }
-  ],
-  "data_comparisons": [
-    {
-      "field": "MessageID",
-      "expected": "1001",
-      "actual": "1001",
-      "result": "OK"
-    },
-    {
-      "field": "Length",
-      "expected": "64",
-      "actual": "60",
-      "result": "Error"
-    },
-    {
-      "field": "Status",
-      "expected": "READY",
-      "actual": "READY",
-      "result": "OK"
-    }
-  ]
-}
+{ ...content of examples/analysis_request.json... }
 ```
 
 #### JSON Response:
@@ -194,71 +204,102 @@ Content-Type: application/json
 {
   "status": "SUCCESS",
   "message": "Post-analysis result validated and sent to target server",
-  "analysis_id": "TRACE-RUN-1001",
+  "analysis_id": "TRACE-RUN-20261002-102359",
   "processed_at": "2026-10-03T12:00:01Z"
 }
 ```
 
 ---
 
-### 4.3 GET Analysis Results (`/api/analysis`) - Dashboard View
-Allows the DBLTAS Web GUI to list and filter trace-analysis runs.
+## 5. Analysis Report Format
 
-- **URL**: `/api/analysis`
-- **Method**: `GET`
-- **Query Parameters**:
-  - `result_status` *(optional)*: Filter by outcome (`PASSED`, `FAILED`, `WARNING`).
-  - `device_id` *(optional)*: Filter by target device ID.
-  - `protocol` *(optional)*: Filter by communication protocol (e.g. `CAN`, `TCP`).
-  - `search` *(optional)*: Search keyword inside summaries, error reasons, or analysis IDs.
-  - `limit` *(optional, default: 50)*: Number of results to return.
+Defined in `src/models/analysis.py`. Fields marked *optional* may be omitted (lists default to `[]`, `fields` to `{}`, nullable values to `null`). Any field not listed here is rejected as unexpected content.
 
-#### Response Example:
-```json
-[
-  {
-    "analysis_id": "TRACE-RUN-1001",
-    "device_id": "TW-NODE-01",
-    "timestamp": "2026-10-03T12:00:00Z",
-    "analysis_type": "TRACE_COMMUNICATION",
-    "result_status": "FAILED",
-    "summary": "Message length error detected on CAN bus packet ID 127.",
-    "trace_messages": [ ... ],
-    "failure_findings": [ ... ],
-    "data_comparisons": [ ... ]
-  }
-]
-```
+### Report (top level)
+| Field | Type | Required | Constraints |
+| :--- | :--- | :--- | :--- |
+| `analysis_id` | string | yes | 3–64 characters |
+| `device_id` | string | yes | 1–64 characters |
+| `timestamp` | string (ISO 8601) | yes | |
+| `analysis_type` | string | yes | 2–64 characters |
+| `result_status` | string | yes | `PASSED`, `FAILED`, `WARNING`, `INCONCLUSIVE` |
+| `summary` | string | yes | 1–4096 characters |
+| `trace_messages` | array of trace messages | optional | `message_id` values unique |
+| `failure_findings` | array of failure findings | optional | |
+| `data_comparisons` | array of data comparisons | optional | |
+
+### Trace message (`trace_messages[]`)
+| Field | Type | Required | Constraints |
+| :--- | :--- | :--- | :--- |
+| `message_id` | string | yes | 1–64 characters, unique |
+| `timestamp` | string (ISO 8601) | yes | |
+| `time_s` | number | yes | ≥ 0 (seconds since trace start) |
+| `sender`, `receiver` | string | yes | 1–64 characters |
+| `protocol`, `message_type` | string | yes | 1–64 characters |
+| `message_code` | string | yes | hexadecimal, e.g. `0x0007` |
+| `direction` | string | yes | 1–32 characters, e.g. `AZ→ZE` |
+| `length` | integer | yes | ≥ 0 (bytes) |
+| `fields` | object | optional | keys 1–64 characters; values string (≤ 256), number, boolean or `null` |
+| `test_case` | string or `null` | optional | 1–64 characters |
+| `status` | string | yes | `OK`, `FAILED`, `WARNING` |
+| `error_reason` | string or `null` | optional | 1–256 characters |
+
+### Failure finding (`failure_findings[]`)
+| Field | Type | Required | Constraints |
+| :--- | :--- | :--- | :--- |
+| `message_id` | string or `null` | optional | must reference a trace message |
+| `expected_length` | integer or `null` | optional | ≥ 0; set together with `actual_length` |
+| `actual_length` | integer or `null` | optional | ≥ 0; equals the referenced trace message `length` |
+| `result` | string | yes | 1–64 characters, e.g. `Message Length Error` |
+| `test_case` | string or `null` | optional | 1–64 characters |
+| `timestamp` | string (ISO 8601) | yes | |
+| `time_s` | number | yes | ≥ 0 |
+| `category` | string | yes | snake_case, e.g. `incorrect_length` |
+| `description` | string | yes | 1–1024 characters |
+| `confidence` | number | yes | 0.0–1.0 |
+| `evidence` | array of strings | optional | each 1–256 characters |
+
+### Data comparison (`data_comparisons[]`)
+| Field | Type | Required | Constraints |
+| :--- | :--- | :--- | :--- |
+| `field` | string | yes | 1–128 characters |
+| `expected`, `actual` | string | yes | ≤ 256 characters |
+| `result` | string | yes | `OK`, `Error`, `Warning` |
+| `test_case` | string or `null` | optional | `null` for trace-wide checks |
 
 ---
 
-### 4.4 GET Detailed Analysis (`/api/analysis/{analysis_id}`) - Detailed View
-Allows the Web GUI to retrieve failure findings, data comparison tables, and full trace message logs for a single analysis run.
+## 6. Validation Specification
 
-- **URL**: `/api/analysis/{analysis_id}`
-- **Method**: `GET`
-
-#### Response:
-Returns the complete `AnalysisResultRequest` object including `trace_messages`, `failure_findings`, and `data_comparisons`.
-
----
-
-## 5. Validation Specification
-
+### 6.1 POST `/api/analysis` request payload
 | Validation Check | Mechanism | Failure Code | Error Details |
 | :--- | :--- | :--- | :--- |
 | **Message Length (Total)** | ASGI middleware checks `Content-Length` | `413 Payload Too Large` | Size in bytes exceeds `max_payload_bytes` |
 | **Message Length (Fields)** | Pydantic `min_length` & `max_length` | `422 Unprocessable Entity` | Field value string length out of bounds |
 | **Mandatory Fields** | Pydantic required fields | `422 Unprocessable Entity` | `Mandatory field '<field>' is required` |
-| **Data Types** | Strict Pydantic types (`StrictInt`, `StrictStr`, etc.) | `422 Unprocessable Entity` | `Invalid data type for field '<field>'` |
+| **Data Types** | Strict Pydantic model (`strict=True`; JSON `"47"` is not an integer) | `422 Unprocessable Entity` | `Invalid data type for field '<field>'` |
 | **Message Format** | Content-Type checking | `415 Unsupported Media Type` | Unsupported format (not JSON or XML) |
 | **Invalid JSON** | Intercepts `JSONDecodeError` | `400 Bad Request` | `Malformed JSON syntax at line X, col Y` |
 | **Invalid XML** | `defusedxml` parser | `400 Bad Request` | `Invalid XML syntax or entity error` |
-| **Unexpected Content** | Pydantic `extra = 'forbid'` | `422 Unprocessable Entity` | `Unexpected field '<field>' is not permitted` |
+| **Unexpected Content** | Pydantic `extra = 'forbid'`, enumerations, patterns | `422 Unprocessable Entity` | `Unexpected field '<field>' is not permitted` |
+| **Consistency** | Model validators (see 6.3) | `422 Unprocessable Entity` | e.g. `message_id 'x' does not match any trace message` |
+
+### 6.2 GET `/api/analysis` report file
+| Validation Check | Mechanism | Failure Code | Error Details |
+| :--- | :--- | :--- | :--- |
+| **File Exists** | File read | `404 Not Found` | `Analysis report file '<name>' does not exist.` |
+| **Message Length (Total)** | At most `max_report_bytes` are read | `500 Internal Server Error` | `Analysis report exceeds the configured size limit (N bytes).` |
+| **Message Format** | UTF-8 JSON object | `500 Internal Server Error` | `Malformed JSON syntax at line X, column Y`, `must be a JSON object` |
+| **Schema** (lengths, mandatory fields, data types, unexpected content, consistency) | Same model as POST | `500 Internal Server Error` | `validation_errors` list as in section 7 |
+
+### 6.3 Consistency rules
+- Trace message `message_id` values are unique.
+- A failure finding's `message_id` (when not `null`) references an existing trace message.
+- `expected_length` and `actual_length` are both set or both `null`, and `actual_length` equals the `length` of the referenced trace message.
 
 ---
 
-## 6. Error Response Schema
+## 7. Error Response Schema
 
 All errors follow a consistent, standardized envelope:
 
