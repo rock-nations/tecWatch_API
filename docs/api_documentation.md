@@ -59,6 +59,7 @@ api:
   status_endpoint: "/api/status"      # Endpoint to fetch status
   result_endpoint: "/api/analysis"    # Endpoint to send analysis results
   max_payload_bytes: 1048576          # 1 MB maximum allowed request size
+  status_fallback: true               # tecWatch not reachable: GET /api/status returns the simulated status
 
 analysis:
   report_path: "data/data-analysis-report.json"   # Report served by GET /api/analysis (relative to the backend folder)
@@ -79,6 +80,7 @@ Configuration values can also be set via environment variables without touching 
 - `TECWATCH_SERVER_PORT`: Overrides `server.port`
 - `TECWATCH_STATUS_ENDPOINT`: Overrides `api.status_endpoint`
 - `TECWATCH_RESULT_ENDPOINT`: Overrides `api.result_endpoint`
+- `TECWATCH_STATUS_FALLBACK`: Overrides `api.status_fallback` (`true` / `false`)
 - `TECWATCH_ANALYSIS_REPORT_PATH`: Overrides `analysis.report_path`
 - `TECWATCH_ANALYSIS_SCENARIOS_PATH`: Overrides `analysis.scenarios_path`
 
@@ -148,7 +150,8 @@ Content-Type: application/json
   "active_alerts": [
     "GFM-A 34W1 gestört (disturbed) and nicht grundstellbar: AZG/AZGH will be discarded",
     "Test unit stopped manually: TC_NPRO.295.00522.01 inconclusive"
-  ]
+  ],
+  "source": "tecwatch"
 }
 ```
 
@@ -168,6 +171,10 @@ Content-Type: application/json
 | `track_sections[].axle_count`, `since` | integer, string | Axle count fill level, since when the state is reported |
 | `test_execution` | object | `state` (`IDLE`, `RUNNING`, `STOPPED`, `COMPLETED`), `test_unit`, `configuration`, `current_test_case`, `passed`, `failed`, `inconclusive` |
 | `active_alerts` | array of strings | Alerts for the trial operator |
+| `source` | `tecwatch` \| `simulated` | Set by the API: `simulated` when the tecWatch server could not be reached and the built-in status was returned (see below) |
+
+#### Simulated status when tecWatch is not reachable
+If the tecWatch server cannot be reached (connection refused, e.g. the mock server is not running, or timeout) and `api.status_fallback` is `true` (default), the API answers `200` with its built-in status (the same status the mock tecWatch server sends) and `"source": "simulated"`, so the Web GUI keeps working and marks the status as simulated. Set `api.status_fallback: false` (or `TECWATCH_STATUS_FALLBACK=false`) to get `502`/`504` instead. A status that tecWatch sends but that fails validation is never replaced: it is always reported as `502` with `validation_errors`.
 
 #### XML Response (`Accept: application/xml`):
 ```http
@@ -208,6 +215,7 @@ Content-Type: application/xml
   </test_execution>
   <active_alerts>GFM-A 34W1 gestört (disturbed) and nicht grundstellbar: AZG/AZGH will be discarded</active_alerts>
   <active_alerts>Test unit stopped manually: TC_NPRO.295.00522.01 inconclusive</active_alerts>
+  <source>tecwatch</source>
 </tecWatchStatus>
 ```
 
@@ -309,6 +317,7 @@ Called by the Web GUI's **Analysis Findings** page. Reads the configured analysi
 | `timeline[]` | `canoe_time_s`, `wall_clock`, `pcap_frame`, `source`, `direction`, `event`, `phase`, `test_case_id`, `comment`, `scenario_ids` |
 | `gfma_state_history` | `section`, `coding_note`, `states[]` (`canoe_time_s`, `pcap_frame`, `occupancy_code`/`occupancy`, `resettable_code`/`resettable`, `axle_count`, `until_s`, `duration_s`, `duration_note`, `phase`, `test_case_id`, `remark`) |
 | `method` | `steps[]` (`step`, `activity`, `details`), `open_questions[]` (`id`, `question`, `scenario_ids`) |
+| `io_graph` | Optional; only in `POST /api/analysis/upload` results with a capture (see 4.5) |
 
 #### Error Responses:
 | Situation | Status | `error` |
@@ -344,6 +353,18 @@ curl -s -X POST "http://localhost:8000/api/analysis/upload" \
 | Time alignment | CANoe writes its measurement time (µs) into the RaSTA timestamp of the PDUs it sends: `CANoe time = capture time + offset` (median; accepted when the median deviation is ≤ 5 ms). Without it, capture and report findings are not mapped to test cases. |
 | Rules | Communication health (unanswered connections, abnormal disconnects, failed BTP version check, retransmissions, sequence gaps, message gaps > 750 ms); GFM-A 'gestört' episodes and their trigger (occupation with axle count 0x0000); test cases starting in a disturbed state; reactions to AZG/AZGH slower than 500 ms or missing; recovery commands while not 'grundstellbar'; unused 'grundstellbar' windows; commands not sent by the test script; preparation timeouts; failed cleanups; manual stops; other failing steps |
 | Result | `test_cases[].root_cause` explains each failed or inconclusive test case in plain language; `scenarios` are sorted by severity (`S01` = most severe); `timeline` (max. 400 events) and `gfma_state_history` are built from the decoded data |
+| I/O graph | `io_graph` (only with a capture): packets per interval of all frames and of the 20 busiest IPv4/IPv6 addresses, as source (`ip.src`) and destination (`ip.dst`); fragments are counted, other frames (e.g. ARP) only in `all_packets` |
+
+#### `io_graph` structure:
+| Key | Content |
+| :--- | :--- |
+| `capture_file`, `total_packets` | Capture and number of frames |
+| `start_epoch_s`, `interval_s` | Unix time of the first packet and width of one interval: 1 s for captures up to one hour, then 2, 5, 10, 30 s … so there are at most 3600 intervals |
+| `utc_offset_min` | UTC offset of the test bench from the test report (`null` without report) |
+| `canoe_zero_epoch_s` | Unix time of CANoe measurement time 0 (`null` if the capture cannot be aligned); used to place test-case windows on the time axis |
+| `all_packets` | Frames per interval |
+| `hosts[]` | `address`, `role` (`ESTW-ZE (CANoe)`, `Object controller` or `null`), `packets_sent`, `packets_received`, `sent[]` and `received[]` per interval (same length as `all_packets`) |
+| `other_hosts` | Number of addresses that are not listed |
 
 #### Error Responses:
 | Situation | Status | `error` |

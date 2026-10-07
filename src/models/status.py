@@ -166,3 +166,8 @@ class StatusResponse(BaseModel):
         max_length=50,
         description="List of active alerts for the trial operator",
     )
+    source: Literal["tecwatch", "simulated"] = Field(
+        default="tecwatch",
+        description="Set by the API: 'tecwatch' for the server's status, 'simulated' for the built-in status "
+                    "returned while the tecWatch server cannot be reached",
+    )

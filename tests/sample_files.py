@@ -49,14 +49,26 @@ def pcap(packets: Iterable[Tuple[float, bytes]]) -> bytes:
     return data
 
 
-def udp_frame(src: str, dst: str, payload: bytes, port: int = 24001, vlan: Optional[int] = 1201) -> bytes:
+def udp_frame(src: str, dst: str, payload: bytes, port: int = 24001, vlan: Optional[int] = 1201,
+              flags_fragment: int = 0x4000) -> bytes:
     udp = struct.pack("!HHHH", port, port, 8 + len(payload), 0) + payload
-    ip = struct.pack("!BBHHHBBH4s4s", 0x45, 0, 20 + len(udp), 0, 0x4000, 64, 17, 0,
+    ip = struct.pack("!BBHHHBBH4s4s", 0x45, 0, 20 + len(udp), 0, flags_fragment, 64, 17, 0,
                      socket.inet_aton(src), socket.inet_aton(dst)) + udp
     ethernet = b"\x02\x00\x00\x00\x00\x01" + b"\x02\x00\x00\x00\x00\x02"
     if vlan is not None:
         ethernet += struct.pack("!HH", 0x8100, vlan)
     return ethernet + struct.pack("!H", 0x0800) + ip
+
+
+def ipv6_udp_frame(src: str, dst: str, payload: bytes) -> bytes:
+    udp = struct.pack("!HHHH", 5000, 5000, 8 + len(payload), 0) + payload
+    ip = struct.pack("!IHBB", 6 << 28, len(udp), 17, 64) + socket.inet_pton(socket.AF_INET6, src) \
+        + socket.inet_pton(socket.AF_INET6, dst) + udp
+    return b"\x02" * 6 + b"\x04" * 6 + struct.pack("!H", 0x86DD) + ip
+
+
+def arp_frame() -> bytes:
+    return b"\xff" * 6 + b"\x02" * 6 + struct.pack("!H", 0x0806) + b"\x00" * 28
 
 
 def icmp_port_unreachable(src: str, dst: str) -> bytes:

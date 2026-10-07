@@ -120,10 +120,50 @@ class AnalysisMethod(StrictModel):
     open_questions: List[OpenQuestion] = Field(default_factory=list, description="Open questions for the team")
 
 
+PacketCount = Annotated[int, Field(ge=0)]
+
+
+class IoGraphHost(StrictModel):
+    """Packets one IP address sent and received per interval."""
+
+    address: Annotated[str, StringConstraints(min_length=2, max_length=64)] = Field(..., description="IPv4 or IPv6 address")
+    role: Optional[ShortText] = Field(default=None, description="Role on the SCI-TDS interface (e.g. ESTW-ZE (CANoe))")
+    packets_sent: PacketCount = Field(..., description="Packets with this source address")
+    packets_received: PacketCount = Field(..., description="Packets with this destination address")
+    sent: List[PacketCount] = Field(..., description="Packets per interval with this source address (ip.src)")
+    received: List[PacketCount] = Field(..., description="Packets per interval with this destination address (ip.dst)")
+
+
+class IoGraph(StrictModel):
+    """Packets per interval over an uploaded capture, like the Wireshark I/O graph."""
+
+    capture_file: ShortText = Field(..., description="Capture the graph was built from")
+    start_epoch_s: float = Field(..., ge=0, description="Time of the first packet (Unix time, UTC)")
+    interval_s: float = Field(..., gt=0, description="Width of one interval [s]")
+    utc_offset_min: Optional[int] = Field(
+        default=None, ge=-14 * 60, le=14 * 60, description="UTC offset of the test bench (from the test report)"
+    )
+    canoe_zero_epoch_s: Optional[float] = Field(
+        default=None, description="Unix time of CANoe measurement time 0 (null if the capture cannot be aligned)"
+    )
+    total_packets: PacketCount = Field(..., description="Frames in the capture")
+    all_packets: List[PacketCount] = Field(..., min_length=1, description="All frames per interval")
+    other_hosts: PacketCount = Field(default=0, description="Addresses not listed in hosts (only the busiest are listed)")
+    hosts: List[IoGraphHost] = Field(default_factory=list, description="Busiest IP addresses, most packets first")
+
+    @model_validator(mode="after")
+    def intervals_match(self) -> "IoGraph":
+        intervals = len(self.all_packets)
+        for host in self.hosts:
+            if len(host.sent) != intervals or len(host.received) != intervals:
+                raise ValueError(f"io_graph host {host.address}: sent and received must have {intervals} intervals")
+        return self
+
+
 class AnalysisScenarios(StrictModel):
     """
     Failure-analysis scenarios (findings) of a test run, extracted from the data-analysis workbook
-    and served by GET /api/analysis/scenarios.
+    and served by GET /api/analysis/scenarios, or computed from uploaded files by POST /api/analysis/upload.
     """
 
     source_file: ShortText = Field(..., description="Workbook the data was extracted from")
@@ -134,6 +174,7 @@ class AnalysisScenarios(StrictModel):
     timeline: List[TimelineEvent] = Field(default_factory=list)
     gfma_state_history: SectionStateHistory
     method: AnalysisMethod
+    io_graph: Optional[IoGraph] = Field(default=None, description="Packets per interval of an uploaded capture")
 
     @model_validator(mode="after")
     def references_resolve(self) -> "AnalysisScenarios":

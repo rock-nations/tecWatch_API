@@ -18,6 +18,7 @@ def clean_config():
         "TECWATCH_RESULT_ENDPOINT",
         "TECWATCH_ANALYSIS_REPORT_PATH",
         "TECWATCH_ANALYSIS_SCENARIOS_PATH",
+        "TECWATCH_STATUS_FALLBACK",
     ]:
         os.environ.pop(key, None)
     ConfigManager.reset_instance()

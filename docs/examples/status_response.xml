@@ -32,4 +32,5 @@
   </test_execution>
   <active_alerts>GFM-A 34W1 gestört (disturbed) and nicht grundstellbar: AZG/AZGH will be discarded</active_alerts>
   <active_alerts>Test unit stopped manually: TC_NPRO.295.00522.01 inconclusive</active_alerts>
+  <source>tecwatch</source>
 </tecWatchStatus>

@@ -9,7 +9,8 @@ from src.models.analysis import AnalysisReport, AnalysisResultResponse
 from src.models.scenarios import AnalysisScenarios
 from src.models.status import StatusResponse
 from src.services.analysis_report import load_analysis_report, load_analysis_scenarios
-from src.services.client import TecWatchClient, UpstreamDataError
+from src.services.client import TecWatchClient, UpstreamConnectionError, UpstreamDataError, UpstreamTimeoutError
+from src.services.simulated_status import DEFAULT_DEVICE_ID, simulated_status
 from src.services.upload_analysis import check_upload_types, read_upload, run_upload_analysis
 from src.services.xml_handler import XMLParseError, dict_to_xml_str, parse_xml_to_dict
 from src.utils.logger import logger
@@ -25,9 +26,14 @@ def get_client() -> TecWatchClient:
     "/status",
     summary="Fetch tecWatch status information",
     responses={
-        200: {"model": StatusResponse, "description": "Validated tecWatch status of the monitored SCI-TDS interface"},
-        502: {"description": "tecWatch server unreachable, returned an error, or sent a status that fails validation"},
-        504: {"description": "tecWatch server timed out"},
+        200: {
+            "model": StatusResponse,
+            "description": "Validated tecWatch status of the monitored SCI-TDS interface; \"source\": \"simulated\" "
+                           "if the tecWatch server could not be reached and api.status_fallback is on",
+        },
+        502: {"description": "tecWatch server returned an error or a status that fails validation (or is unreachable "
+                             "with api.status_fallback off)"},
+        504: {"description": "tecWatch server timed out (api.status_fallback off)"},
     },
 )
 async def get_status(
@@ -37,9 +43,19 @@ async def get_status(
 ):
     """
     Retrieves current status information from the configured tecWatch server.
+    If the server cannot be reached (connection refused or timeout) and api.status_fallback is on, the
+    built-in simulated status is returned instead, marked with "source": "simulated".
     Supports both JSON and XML responses based on the HTTP Accept header.
     """
-    raw_status = await client.fetch_status(device_id=device_id)
+    source = "tecwatch"
+    try:
+        raw_status = await client.fetch_status(device_id=device_id)
+    except (UpstreamConnectionError, UpstreamTimeoutError) as exc:
+        if not ConfigManager.get_instance().config.api.status_fallback:
+            raise
+        logger.warning(f"tecWatch server not reachable ({exc}); returning the built-in simulated status")
+        raw_status = simulated_status(device_id or DEFAULT_DEVICE_ID)
+        source = "simulated"
 
     # Validate against strict StatusResponse schema
     try:
@@ -49,6 +65,7 @@ async def get_status(
             "tecWatch status response failed validation (check mandatory fields, data types, or unexpected content).",
             val_err.errors(),
         )
+    validated_status.source = source
 
     accept_header = request.headers.get("accept", "").lower()
     if "application/xml" in accept_header or "text/xml" in accept_header:
@@ -247,6 +264,7 @@ async def get_active_config():
             "status_endpoint": cfg.api.status_endpoint,
             "result_endpoint": cfg.api.result_endpoint,
             "max_payload_bytes": cfg.api.max_payload_bytes,
+            "status_fallback": cfg.api.status_fallback,
         },
         "analysis": {
             "report_path": cfg.analysis.report_path,

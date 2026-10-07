@@ -36,6 +36,7 @@ async def test_upload_capture_only(client):
     titles = [s["title"] for s in data["scenarios"]]
     assert any("became 'gestört'" in title for title in titles)
     assert titles[-1].startswith("Communication layer ruled out")
+    assert [host["role"] for host in data["io_graph"]["hosts"]] == ["ESTW-ZE (CANoe)", "Object controller"]
 
 
 @pytest.mark.asyncio
