@@ -46,6 +46,14 @@ class AnalysisConfig(BaseModel):
         description="Analysis scenarios (findings) JSON file served by GET /api/analysis/scenarios",
     )
     max_report_bytes: int = Field(default=1048576, ge=1024, description="Max allowed size of each analysis file in bytes")
+    max_upload_bytes: int = Field(
+        default=52428800, ge=1024, description="Max size of each file uploaded to POST /api/analysis/upload in bytes"
+    )
+
+    @property
+    def max_upload_request_bytes(self) -> int:
+        """Request size limit of the upload endpoint: two files plus the multipart framing."""
+        return 2 * self.max_upload_bytes + 65536
 
     @property
     def resolved_report_path(self) -> Path:

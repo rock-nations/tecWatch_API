@@ -3,12 +3,12 @@
 Project
 tecWatch – Configurable Status and Post-Analysis API
 Objective
-Develop a configurable API layer for communication between tecWatch, analysis components, and the DBLTAS Web GUI.
+Develop a configurable API layer for communication between tecWatch, analysis components, and the DBLTAS Dashboard.
 The API should retrieve tecWatch status information and send post-analysis results to DBLTAS.
 The solution should not depend on a single hard-coded server.
 Tasks
 Implement an API to fetch tecWatch status.
-DBLTAS Web GUI
+DBLTAS Dashboard
 Make configuration dynamic.
 Example configuration:
 server:

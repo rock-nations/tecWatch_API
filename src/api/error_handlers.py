@@ -10,6 +10,7 @@ from src.services.client import (
     UpstreamResponseError,
     UpstreamTimeoutError,
 )
+from src.services.upload_analysis import UploadAnalysisError
 from src.services.xml_handler import XMLParseError
 from src.utils.logger import logger
 
@@ -86,6 +87,18 @@ def register_error_handlers(app: FastAPI) -> None:
 
         logger.error(f"Analysis report rejected on {request.url.path}: {content}")
         return JSONResponse(status_code=exc.status_code, content=content)
+
+    @app.exception_handler(UploadAnalysisError)
+    async def upload_analysis_error_handler(request: Request, exc: UploadAnalysisError):
+        log = logger.error if exc.status_code >= 500 else logger.warning
+        log(f"Upload rejected on {request.url.path}: {exc.error} - {exc.detail}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": exc.error,
+                "detail": exc.detail,
+            },
+        )
 
     @app.exception_handler(UpstreamConnectionError)
     async def upstream_connect_handler(request: Request, exc: UpstreamConnectionError):

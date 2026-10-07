@@ -2,7 +2,7 @@
 
 ## 1. Overview & Objective
 
-The **tecWatch API** is a high-performance, configurable API layer designed for reliable communication between **tecWatch systems**, **analysis components**, and the **DBLTAS Web GUI**.
+The **tecWatch API** is a high-performance, configurable API layer designed for reliable communication between **tecWatch systems**, **analysis components**, and the **DBLTAS Dashboard**.
 
 ### Key Capabilities:
 - **Zero-Code Server Switching**: Seamlessly re-point the API to different target servers simply by editing `config/config.yaml` or setting environment variables.
@@ -14,10 +14,11 @@ The **tecWatch API** is a high-performance, configurable API layer designed for 
   - Schema & format validation.
   - Rejection of unexpected content / extra fields (`extra='forbid'`).
   - Graceful handling of invalid/malformed JSON and XML (`400 Bad Request`).
-- **DBLTAS Web GUI Ready**:
+- **DBLTAS Dashboard Ready**:
   - Pre-configured CORS for browser clients.
   - Interactive Swagger UI at `/docs` and ReDoc at `/redoc`.
   - Validated analysis report endpoint providing trace messages, failure findings, and data comparisons for the dashboard.
+  - Upload & analyze endpoint that explains failing test cases from an uploaded SCI-TDS capture and/or CANoe test report.
 
 ---
 
@@ -25,7 +26,8 @@ The **tecWatch API** is a high-performance, configurable API layer designed for 
 
 ```mermaid
 flowchart LR
-    GUI["DBLTAS Web GUI"] -->|GET /api/status\nGET /api/analysis\nGET /api/analysis/scenarios| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
+    GUI["DBLTAS Dashboard"] -->|GET /api/status\nGET /api/analysis\nGET /api/analysis/scenarios\nPOST /api/analysis/upload| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
+    Gateway -->|capture + test report| Analyzer["Analysis engine\n(src/analyzer)"]
     Report[("Analysis report JSON\n(analysis.report_path)")] -->|read + validate\non every GET| Gateway
     Findings[("Analysis scenarios JSON\n(analysis.scenarios_path)")] -->|read + validate\non every GET| Gateway
     Workbook["Data-analysis workbook (.xlsx)"] -.->|scripts/extract_analysis_scenarios.py| Findings
@@ -38,7 +40,8 @@ flowchart LR
 2. `GET /api/status` is proxied to the configured tecWatch server and validated.
 3. `GET /api/analysis` reads the configured analysis report file (produced by the data-analysis component), validates it, and returns it unchanged.
 4. The GUI's **Analysis Findings** page calls `GET /api/analysis/scenarios`, which serves the failure-analysis scenarios extracted from the data-analysis workbook (read and validated on every request, returned unchanged).
-5. Analysis components may submit results with `POST /api/analysis`; they are validated and forwarded to the configured target server. The Web GUI never posts analysis data.
+5. The GUI's **Upload & Analyze** page sends a capture (pcapng/pcap) and/or CANoe test report (PDF) to `POST /api/analysis/upload`; the backend analyses them in memory and returns findings in the scenarios format.
+6. Analysis components may submit results with `POST /api/analysis`; they are validated and forwarded to the configured target server. The Web GUI never posts analysis data.
 
 ---
 
@@ -61,6 +64,7 @@ analysis:
   report_path: "data/data-analysis-report.json"   # Report served by GET /api/analysis (relative to the backend folder)
   scenarios_path: "data/analysis-scenarios.json"  # Findings served by GET /api/analysis/scenarios
   max_report_bytes: 1048576                        # 1 MB maximum length of each analysis file
+  max_upload_bytes: 52428800                       # 50 MB maximum size of each file uploaded for analysis
 
 gateway:
   listen_host: "0.0.0.0"     # Interface where this API binds
@@ -210,7 +214,7 @@ Content-Type: application/xml
 ---
 
 ### 4.2 GET Analysis Report API (`/api/analysis`)
-Called by the DBLTAS Web GUI on initial load. Reads the configured analysis report file (`analysis.report_path`), validates it (message length, message format, mandatory fields, data types, unexpected content, consistency) and returns it **unchanged**. The file is read on every request, so a regenerated report is served without restarting the API.
+Called by the DBLTAS Dashboard on initial load. Reads the configured analysis report file (`analysis.report_path`), validates it (message length, message format, mandatory fields, data types, unexpected content, consistency) and returns it **unchanged**. The file is read on every request, so a regenerated report is served without restarting the API.
 
 - **URL**: `/api/analysis`
 - **Method**: `GET`
@@ -300,7 +304,7 @@ Called by the Web GUI's **Analysis Findings** page. Reads the configured analysi
 | :--- | :--- |
 | `source_file`, `title` | Workbook the data was extracted from, title of the analysis |
 | `test_run` | `name`, `overall_verdict`, `sut`, `test_system`, `data_sources`, `time_correlation` |
-| `test_cases[]` | `number`, `test_case_id`, `variant`, `title`, `verdict` (`Pass`, `Fail`, `Inconclusive`), `window_start_s`, `window_end_s`, `failure_point`, `root_cause`, `scenario_ids` |
+| `test_cases[]` | `number`, `test_case_id`, `variant`, `title`, `verdict` (`Pass`, `Fail`, `Inconclusive`, `Error`, `None`), `window_start_s`, `window_end_s`, `failure_point`, `root_cause`, `scenario_ids` |
 | `scenarios[]` | `id` (`S01`…), `title`, `category`, `test_cases`, `test_case_scope`, `applies_to_all_test_cases`, `data_sources[]` (`type`: `pdf`, `pcap`, `blf`, `write_log`, `test_spec`, `telegram_xlsx`, `lua_dissector`; `label`), `severity` (`High`, `Medium`, `Low`, `Info`), `confidence` (`High`, `Medium`, `Low`), `symptom`, `evidence[]`, `root_cause`, `potential_reasons[]`, `recommendation`, `method` |
 | `timeline[]` | `canoe_time_s`, `wall_clock`, `pcap_frame`, `source`, `direction`, `event`, `phase`, `test_case_id`, `comment`, `scenario_ids` |
 | `gfma_state_history` | `section`, `coding_note`, `states[]` (`canoe_time_s`, `pcap_frame`, `occupancy_code`/`occupancy`, `resettable_code`/`resettable`, `axle_count`, `until_s`, `duration_s`, `duration_note`, `phase`, `test_case_id`, `remark`) |
@@ -312,6 +316,44 @@ Called by the Web GUI's **Analysis Findings** page. Reads the configured analysi
 | Scenarios file does not exist | `404 Not Found` | `Analysis Scenarios Not Found` |
 | File too large, unreadable, not UTF-8, malformed JSON, not a JSON object | `500 Internal Server Error` | `Invalid Analysis Scenarios` |
 | Schema violation or unresolved reference (unknown scenario/test case, duplicate IDs) | `500 Internal Server Error` | `Invalid Analysis Scenarios` (+ `validation_errors`) |
+
+---
+
+### 4.5 POST Upload & Analyze API (`/api/analysis/upload`)
+Called by the Web GUI's **Upload & Analyze** page. Analyses the uploaded files of a test run in memory (nothing is stored) and returns the result in the format of `GET /api/analysis/scenarios` (section 4.4).
+
+- **URL**: `/api/analysis/upload`
+- **Method**: `POST`
+- **Content-Type**: `multipart/form-data` with at least one of:
+  - `capture`: SCI-TDS capture as `.pcapng` or `.pcap` (Ethernet with or without VLAN tags, raw IP, Linux SLL)
+  - `report`: CANoe test report exported as PDF
+- **Supported Headers**: `Accept`: `application/json` (default) or `application/xml`
+
+#### Request Example:
+```bash
+curl -s -X POST "http://localhost:8000/api/analysis/upload" \
+  -F "capture=@RealOCWorking_TDS_21026.pcapng" \
+  -F "report=@Real_SCI-TDS_2026-10-02_12-24-11.pdf"
+```
+
+#### Processing:
+| Step | Details |
+| :--- | :--- |
+| Capture decoding | pcapng/pcap blocks (frame numbers as in Wireshark, CANoe Custom Blocks included), Ethernet/VLAN/IPv4/UDP, RaSTA redundancy + safety layer (connection, heartbeat, data, retransmission, disconnect), SCI-TDS Baseline 5 telegrams (GFM-A Belegungszustand, AZG, AZGH, Kommando abgewiesen, AZGH-Quittung, Aufrüstung, BTP version check) |
+| Report reading | Test unit, begin/end with UTC offset, configuration, test cases with verdict and time window, failing steps with step and section, telegrams sent by the test script (`Sende '…'`) |
+| Time alignment | CANoe writes its measurement time (µs) into the RaSTA timestamp of the PDUs it sends: `CANoe time = capture time + offset` (median; accepted when the median deviation is ≤ 5 ms). Without it, capture and report findings are not mapped to test cases. |
+| Rules | Communication health (unanswered connections, abnormal disconnects, failed BTP version check, retransmissions, sequence gaps, message gaps > 750 ms); GFM-A 'gestört' episodes and their trigger (occupation with axle count 0x0000); test cases starting in a disturbed state; reactions to AZG/AZGH slower than 500 ms or missing; recovery commands while not 'grundstellbar'; unused 'grundstellbar' windows; commands not sent by the test script; preparation timeouts; failed cleanups; manual stops; other failing steps |
+| Result | `test_cases[].root_cause` explains each failed or inconclusive test case in plain language; `scenarios` are sorted by severity (`S01` = most severe); `timeline` (max. 400 events) and `gfma_state_history` are built from the decoded data |
+
+#### Error Responses:
+| Situation | Status | `error` |
+| :--- | :--- | :--- |
+| Neither `capture` nor `report` sent | `400 Bad Request` | `No File Uploaded` |
+| An uploaded file is empty | `400 Bad Request` | `Empty File` |
+| A file is larger than `analysis.max_upload_bytes` | `413 Payload Too Large` | `File Too Large` |
+| The request is larger than 2 × `max_upload_bytes` + 64 KiB (`Content-Length`) | `413 Payload Too Large` | `Payload Too Large` |
+| `capture` is not pcapng/pcap or `report` is not a PDF (checked by content) | `415 Unsupported Media Type` | `Unsupported File Type` |
+| Damaged capture, unreadable PDF, PDF without CANoe test cases, more than 400 pages | `422 Unprocessable Entity` | `Unreadable Capture` / `Unreadable Test Report` |
 
 ---
 
@@ -399,14 +441,24 @@ Defined in `src/models/analysis.py`. Fields marked *optional* may be omitted (li
 ### 6.3 GET `/api/analysis/scenarios` scenarios file
 Same file checks as 6.2 with `"error": "Invalid Analysis Scenarios"` / `"Analysis Scenarios Not Found"`. Scenario and test-case IDs must be unique and every reference must resolve (test cases → scenarios, scenarios → test cases, timeline events, GFM-A states, open questions).
 
-### 6.4 GET `/api/status` tecWatch response
+### 6.4 POST `/api/analysis/upload` files
+| Validation Check | Mechanism | Failure Code | Error |
+| :--- | :--- | :--- | :--- |
+| **Message Length (Request)** | `Content-Length` ≤ 2 × `max_upload_bytes` + 64 KiB (middleware) | `413 Payload Too Large` | `Payload Too Large` |
+| **Message Length (File)** | At most `max_upload_bytes` are read per file | `413 Payload Too Large` | `File Too Large` |
+| **Mandatory Content** | At least one non-empty file | `400 Bad Request` | `No File Uploaded`, `Empty File` |
+| **Message Format** | pcapng/pcap and PDF magic bytes per field | `415 Unsupported Media Type` | `Unsupported File Type` |
+| **Content** | Capture blocks and PDF text must be decodable; the report must contain test cases | `422 Unprocessable Entity` | `Unreadable Capture`, `Unreadable Test Report` |
+| **Result** | The generated document is validated against `src/models/scenarios.py` | `500 Internal Server Error` | `Analysis Failed` |
+
+### 6.5 GET `/api/status` tecWatch response
 | Validation Check | Mechanism | Failure Code | Error Details |
 | :--- | :--- | :--- | :--- |
 | **Mandatory Fields / Data Types / Allowed Values** | Strict `StatusResponse` model (`src/models/status.py`) | `502 Bad Gateway` | `validation_errors` list |
 | **Unexpected Content** | Pydantic `extra = 'forbid'` | `502 Bad Gateway` | `Unexpected field '<field>' is not permitted` |
 | **Upstream unreachable / error / timeout** | HTTP client | `502` / `504` | `Cannot connect ...`, `Target server returned error code ...`, `timed out` |
 
-### 6.5 Consistency rules (analysis report)
+### 6.6 Consistency rules (analysis report)
 - Trace message `message_id` values are unique.
 - A failure finding's `message_id` (when not `null`) references an existing trace message.
 - `expected_length` and `actual_length` are both set or both `null`, and `actual_length` equals the `length` of the referenced trace message.

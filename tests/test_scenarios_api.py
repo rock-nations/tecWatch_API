@@ -83,7 +83,7 @@ async def test_get_scenarios_malformed_json(client, use_scenarios):
         pytest.param(lambda d: d["scenarios"][0].update(owner="x"), "scenarios -> 0 -> owner", "extra_forbidden", id="unexpected-field"),
         pytest.param(lambda d: d["timeline"][0].update(pcap_frame="8"), "timeline -> 0 -> pcap_frame", "int_type", id="wrong-type"),
         pytest.param(lambda d: d["gfma_state_history"]["states"][0].update(axle_count="0"), "gfma_state_history -> states -> 0 -> axle_count", "string_pattern_mismatch", id="axle-count-format"),
-        pytest.param(lambda d: d["gfma_state_history"]["states"][0].update(occupancy_code=4), "gfma_state_history -> states -> 0 -> occupancy_code", "less_than_equal", id="occupancy-code-range"),
+        pytest.param(lambda d: d["gfma_state_history"]["states"][0].update(occupancy_code=6), "gfma_state_history -> states -> 0 -> occupancy_code", "less_than_equal", id="occupancy-code-range"),
         pytest.param(lambda d: d["scenarios"][1].update(id=d["scenarios"][0]["id"]), "", "scenario id must be unique", id="duplicate-scenario-id"),
         pytest.param(lambda d: d["timeline"][0].update(scenario_ids=["S99"]), "", "references unknown scenario 'S99'", id="unknown-scenario-reference"),
         pytest.param(lambda d: d["scenarios"][0].update(test_cases=["TC_NPRO.295.99999.01"]), "", "unknown test case 'TC_NPRO.295.99999.01'", id="unknown-test-case-reference"),
