@@ -3,7 +3,7 @@ from src.models.analysis import (
     DataComparison,
     FailureFinding,
     TraceMessage,
-    AnalysisResultRequest,
+    AnalysisReport,
     AnalysisResultResponse,
 )
 
@@ -13,6 +13,6 @@ __all__ = [
     "DataComparison",
     "FailureFinding",
     "TraceMessage",
-    "AnalysisResultRequest",
+    "AnalysisReport",
     "AnalysisResultResponse",
 ]

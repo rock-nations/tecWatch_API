@@ -1,76 +1,18 @@
 import json
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import ValidationError
-from config.settings import AppConfig, ConfigManager
-from src.models.analysis import (
-    AnalysisResultRequest,
-    AnalysisResultResponse,
-    DataComparison,
-    FailureFinding,
-    TraceMessage,
-)
+from starlette.concurrency import run_in_threadpool
+from config.settings import ConfigManager
+from src.models.analysis import AnalysisReport, AnalysisResultResponse
 from src.models.status import StatusResponse
+from src.services.analysis_report import load_analysis_report
 from src.services.client import TecWatchClient
 from src.services.xml_handler import XMLParseError, dict_to_xml_str, parse_xml_to_dict
 from src.utils.logger import logger
 
 router = APIRouter()
-
-# In-memory store for analysis results accessible by the Web GUI
-_analysis_store: Dict[str, AnalysisResultRequest] = {}
-
-
-def _seed_initial_trace_data():
-    """Seeds initial trace-analysis data matching frontend test cases."""
-    if _analysis_store:
-        return
-    seed_item = AnalysisResultRequest(
-        analysis_id="TRACE-RUN-1001",
-        device_id="TW-NODE-01",
-        timestamp=datetime.now(timezone.utc),
-        analysis_type="TRACE_COMMUNICATION",
-        result_status="FAILED",
-        summary="Message length error detected on CAN bus packet ID 127.",
-        trace_messages=[
-            TraceMessage(
-                timestamp=datetime.now(timezone.utc),
-                sender="ECU_ENGINE",
-                receiver="TECWATCH_RECORDER",
-                protocol="CAN",
-                message_type="TELEMETRY",
-                status="FAILED",
-                error_reason="Message Length Error",
-            ),
-            TraceMessage(
-                timestamp=datetime.now(timezone.utc),
-                sender="SENSOR_BRAKE",
-                receiver="TECWATCH_RECORDER",
-                protocol="CAN",
-                message_type="HEARTBEAT",
-                status="OK",
-                error_reason=None,
-            ),
-        ],
-        failure_findings=[
-            FailureFinding(
-                message_id="127",
-                expected_length=64,
-                actual_length=60,
-                result="Message Length Error",
-            ),
-        ],
-        data_comparisons=[
-            DataComparison(field="MessageID", expected="1001", actual="1001", result="OK"),
-            DataComparison(field="Length", expected="64", actual="60", result="Error"),
-            DataComparison(field="Status", expected="READY", actual="READY", result="OK"),
-        ],
-    )
-    _analysis_store[seed_item.analysis_id] = seed_item
-
-
-_seed_initial_trace_data()
 
 
 def get_client() -> TecWatchClient:
@@ -101,81 +43,32 @@ async def get_status(
     return validated_status
 
 
-@router.get("/analysis", summary="List and filter trace-analysis results for Web GUI Dashboard")
-async def list_analyses(
-    request: Request,
-    device_id: Optional[str] = Query(None, description="Filter by device ID"),
-    result_status: Optional[str] = Query(None, description="Filter by outcome status (e.g. PASSED, FAILED)"),
-    protocol: Optional[str] = Query(None, description="Filter by protocol (e.g. CAN, TCP)"),
-    search: Optional[str] = Query(None, description="Search keyword in summary or error reasons"),
-    limit: int = Query(50, ge=1, le=100, description="Max items to return"),
-):
+@router.get(
+    "/analysis",
+    summary="Fetch the validated post-analysis report for the Web GUI",
+    responses={
+        200: {"model": AnalysisReport, "description": "The analysis report exactly as stored in the report file"},
+        404: {"description": "The configured analysis report file does not exist"},
+        500: {"description": "The analysis report is too large, malformed, or fails schema validation"},
+    },
+)
+async def get_analysis(request: Request):
     """
-    Endpoint for Web GUI to display the analysis dashboard,
-    supporting filtering, search, and trace inspection.
+    Reads the configured analysis report JSON file, validates it (message length, message format,
+    mandatory fields, data types, unexpected content) and returns it unchanged.
+    The file is read on every request, so a regenerated report is served without a restart.
     """
-    results = list(_analysis_store.values())
-
-    if device_id:
-        results = [r for r in results if r.device_id.lower() == device_id.lower()]
-    if result_status:
-        results = [r for r in results if r.result_status.lower() == result_status.lower()]
-    if protocol:
-        results = [
-            r for r in results if any(m.protocol.lower() == protocol.lower() for m in r.trace_messages)
-        ]
-    if search:
-        search_lower = search.lower()
-        results = [
-            r for r in results
-            if search_lower in r.summary.lower()
-            or search_lower in r.analysis_id.lower()
-            or any(m.error_reason and search_lower in m.error_reason.lower() for m in r.trace_messages)
-        ]
-
-    results = results[:limit]
+    analysis_cfg = ConfigManager.get_instance().config.analysis
+    report = await run_in_threadpool(
+        load_analysis_report, analysis_cfg.resolved_report_path, analysis_cfg.max_report_bytes
+    )
 
     accept_header = request.headers.get("accept", "").lower()
     if "application/xml" in accept_header or "text/xml" in accept_header:
-        xml_list = [r.model_dump(mode="json") for r in results]
-        xml_output = dict_to_xml_str("TraceAnalysisList", {"analyses": xml_list})
+        xml_output = dict_to_xml_str("AnalysisReport", report)
         return Response(content=xml_output, media_type="application/xml")
 
-    return results
-
-
-@router.get("/analysis/{analysis_id}", summary="Get detailed trace analysis for Web GUI Detailed View")
-async def get_analysis_detail(analysis_id: str, request: Request):
-    """
-    Endpoint for Web GUI to inspect failure findings,
-    trace data visualization, and field comparisons for a specific analysis run.
-    """
-    if analysis_id not in _analysis_store:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Analysis run '{analysis_id}' not found.",
-        )
-
-    analysis_item = _analysis_store[analysis_id]
-    accept_header = request.headers.get("accept", "").lower()
-    if "application/xml" in accept_header or "text/xml" in accept_header:
-        xml_output = dict_to_xml_str("AnalysisDetail", analysis_item.model_dump(mode="json"))
-        return Response(content=xml_output, media_type="application/xml")
-
-    return analysis_item
-
-
-@router.post("/analysis/reset", summary="Reset trace analysis records back to initial demo state")
-async def reset_analysis_store():
-    """Wipes generated trace history and resets back to the initial demo run."""
-    _analysis_store.clear()
-    _seed_initial_trace_data()
-    logger.info("Trace analysis store reset back to initial demo state.")
-    return {
-        "status": "SUCCESS",
-        "message": "Trace analysis history reset to initial demo state.",
-        "total_runs": len(_analysis_store),
-    }
+    return report
 
 
 @router.post("/analysis", summary="Send post-analysis results to DBLTAS")
@@ -184,9 +77,9 @@ async def post_analysis(
     client: TecWatchClient = Depends(get_client),
 ):
     """
-    Accepts post-analysis results in JSON or XML format.
+    Accepts post-analysis results in JSON or XML format, structured like the analysis report.
     Validates message length, mandatory fields, data types, and rejects unexpected content.
-    Forwards validated data to the configured target server and stores it for GUI querying.
+    Forwards validated data to the configured target server.
     """
     content_type = request.headers.get("content-type", "").lower()
     raw_body = await request.body()
@@ -198,6 +91,7 @@ async def post_analysis(
         )
 
     data_to_validate = None
+    validation_options = {}
 
     if "application/json" in content_type:
         try:
@@ -221,6 +115,8 @@ async def post_analysis(
                 data_to_validate = parsed
         except XMLParseError as exc:
             raise exc
+        # XML values are untyped text, so numbers and timestamps are converted instead of strictly checked
+        validation_options = {"strict": False, "context": {"source_format": "xml"}}
 
     else:
         raise HTTPException(
@@ -230,7 +126,7 @@ async def post_analysis(
 
     # Validate against strict Pydantic model (rejects missing fields, invalid types, extra fields)
     try:
-        validated_request = AnalysisResultRequest.model_validate(data_to_validate)
+        validated_request = AnalysisReport.model_validate(data_to_validate, **validation_options)
     except ValidationError as val_err:
         from fastapi.exceptions import RequestValidationError
         raise RequestValidationError(val_err.errors())
@@ -238,9 +134,6 @@ async def post_analysis(
     # Forward to configured target server
     upstream_payload = validated_request.model_dump(mode="json")
     await client.send_analysis_result(upstream_payload)
-
-    # Store for GUI dashboard access
-    _analysis_store[validated_request.analysis_id] = validated_request
 
     # Construct acknowledgment response
     res = AnalysisResultResponse(
@@ -274,6 +167,11 @@ async def get_active_config():
             "status_endpoint": cfg.api.status_endpoint,
             "result_endpoint": cfg.api.result_endpoint,
             "max_payload_bytes": cfg.api.max_payload_bytes,
+        },
+        "analysis": {
+            "report_path": cfg.analysis.report_path,
+            "resolved_report_path": str(cfg.analysis.resolved_report_path),
+            "max_report_bytes": cfg.analysis.max_report_bytes,
         },
         "gateway": {
             "listen_host": cfg.gateway.listen_host,

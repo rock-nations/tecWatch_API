@@ -4,6 +4,9 @@ from typing import Optional
 import yaml
 from pydantic import BaseModel, Field, field_validator
 
+# Backend project folder; relative file paths in the configuration are resolved against it
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 class ServerConfig(BaseModel):
     host: str = Field(default="127.0.0.1", description="Target server IP or hostname")
@@ -28,6 +31,19 @@ class ApiConfig(BaseModel):
         return v
 
 
+class AnalysisConfig(BaseModel):
+    report_path: str = Field(
+        default="data/data-analysis-report.json",
+        description="Analysis report JSON file served by GET /api/analysis",
+    )
+    max_report_bytes: int = Field(default=1048576, ge=1024, description="Max allowed analysis report size in bytes")
+
+    @property
+    def resolved_report_path(self) -> Path:
+        path = Path(self.report_path).expanduser()
+        return path if path.is_absolute() else PROJECT_ROOT / path
+
+
 class GatewayConfig(BaseModel):
     listen_host: str = Field(default="0.0.0.0", description="Gateway host to bind to")
     listen_port: int = Field(default=8000, ge=1, le=65535, description="Gateway port to bind to")
@@ -38,6 +54,7 @@ class GatewayConfig(BaseModel):
 class AppConfig(BaseModel):
     server: ServerConfig = Field(default_factory=ServerConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
+    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
 
 
@@ -82,6 +99,8 @@ class ConfigManager:
             raw_data.setdefault("api", {})["status_endpoint"] = os.environ["TECWATCH_STATUS_ENDPOINT"]
         if "TECWATCH_RESULT_ENDPOINT" in os.environ:
             raw_data.setdefault("api", {})["result_endpoint"] = os.environ["TECWATCH_RESULT_ENDPOINT"]
+        if "TECWATCH_ANALYSIS_REPORT_PATH" in os.environ:
+            raw_data.setdefault("analysis", {})["report_path"] = os.environ["TECWATCH_ANALYSIS_REPORT_PATH"]
 
         self._config = AppConfig(**raw_data)
         return self._config

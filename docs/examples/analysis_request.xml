@@ -1,30 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Same structure as analysis_request.json: repeated elements form lists, empty elements are null -->
 <AnalysisResult>
-  <analysis_id>TRACE-RUN-1001</analysis_id>
-  <device_id>TW-NODE-01</device_id>
-  <timestamp>2026-10-03T12:00:00Z</timestamp>
+  <analysis_id>TRACE-RUN-20261002-102359</analysis_id>
+  <device_id>DETHMM AZA34##0001</device_id>
+  <timestamp>2026-10-02T10:23:59.953Z</timestamp>
   <analysis_type>TRACE_COMMUNICATION</analysis_type>
   <result_status>FAILED</result_status>
-  <summary>Message length error detected on CAN bus packet ID 127.</summary>
+  <summary>1 of 2 test cases failed. TC_NPRO.295.02288.01: MELDUNG_GFMA_BELEGUNGSZUSTAND is one byte shorter than the Test_Description expects.</summary>
   <trace_messages>
-    <timestamp>2026-10-03T12:00:00Z</timestamp>
-    <sender>ECU_ENGINE</sender>
-    <receiver>TECWATCH_RECORDER</receiver>
-    <protocol>CAN</protocol>
-    <message_type>TELEMETRY</message_type>
+    <message_id>frame-11-1</message_id>
+    <timestamp>2026-10-02T10:24:03.601Z</timestamp>
+    <time_s>3.648055</time_s>
+    <sender>DETHMM ZE 35##0001</sender>
+    <receiver>DETHMM AZA34##0001</receiver>
+    <protocol>SCI-TDS BL5 over RaSTA</protocol>
+    <message_type>KOMMANDO_BTP_VERSIONSABGLEICH</message_type>
+    <message_code>0x0024</message_code>
+    <direction>ZE→AZ</direction>
+    <length>44</length>
+    <fields>
+      <btp_version>1</btp_version>
+    </fields>
+    <test_case/>
+    <status>OK</status>
+    <error_reason/>
+  </trace_messages>
+  <trace_messages>
+    <message_id>frame-380-2</message_id>
+    <timestamp>2026-10-02T10:27:00.241Z</timestamp>
+    <time_s>180.287372</time_s>
+    <sender>34W1</sender>
+    <receiver>DETHMM ZE 35##0001</receiver>
+    <protocol>SCI-TDS BL5 over RaSTA</protocol>
+    <message_type>MELDUNG_GFMA_BELEGUNGSZUSTAND</message_type>
+    <message_code>0x0007</message_code>
+    <direction>AZ→ZE</direction>
+    <length>47</length>
+    <fields>
+      <belegung>1</belegung>
+      <grundstellbar>0</grundstellbar>
+      <achszaehlfuellstand>0</achszaehlfuellstand>
+    </fields>
+    <test_case>TC_NPRO.295.02288.01</test_case>
     <status>FAILED</status>
     <error_reason>Message Length Error</error_reason>
   </trace_messages>
   <failure_findings>
-    <message_id>127</message_id>
-    <expected_length>64</expected_length>
-    <actual_length>60</actual_length>
+    <message_id>frame-380-2</message_id>
+    <expected_length>48</expected_length>
+    <actual_length>47</actual_length>
     <result>Message Length Error</result>
+    <test_case>TC_NPRO.295.02288.01</test_case>
+    <timestamp>2026-10-02T10:27:00.241Z</timestamp>
+    <time_s>180.287372</time_s>
+    <category>incorrect_length</category>
+    <description>Test_Description step 2 expects a 48-byte MELDUNG_GFMA_BELEGUNGSZUSTAND, the device sends 47 bytes: the step cannot pass</description>
+    <confidence>0.9</confidence>
+    <evidence>TC_NPRO.295.02288.01_xcel.txt row 1</evidence>
+    <evidence>RealOCWorking_TDS_21026.pcapng frame 380 telegram 2</evidence>
   </failure_findings>
   <data_comparisons>
-    <field>MessageID</field>
-    <expected>1001</expected>
-    <actual>1001</actual>
+    <field>Test verdict</field>
+    <expected>PASSED</expected>
+    <actual>FAILED</actual>
+    <result>Error</result>
+    <test_case>TC_NPRO.295.02288.01</test_case>
+  </data_comparisons>
+  <data_comparisons>
+    <field>Length MELDUNG_GFMA_BELEGUNGSZUSTAND (Test_Description step 2)</field>
+    <expected>48</expected>
+    <actual>47</actual>
+    <result>Error</result>
+    <test_case>TC_NPRO.295.02288.01</test_case>
+  </data_comparisons>
+  <data_comparisons>
+    <field>RaSTA message gap</field>
+    <expected>&lt;= 750 ms</expected>
+    <actual>max 306 ms</actual>
     <result>OK</result>
+    <test_case/>
   </data_comparisons>
 </AnalysisResult>
