@@ -25,8 +25,10 @@ The **tecWatch API** is a high-performance, configurable API layer designed for 
 
 ```mermaid
 flowchart LR
-    GUI["DBLTAS Web GUI"] -->|GET /api/status\nGET /api/analysis| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
+    GUI["DBLTAS Web GUI"] -->|GET /api/status\nGET /api/analysis\nGET /api/analysis/scenarios| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
     Report[("Analysis report JSON\n(analysis.report_path)")] -->|read + validate\non every GET| Gateway
+    Findings[("Analysis scenarios JSON\n(analysis.scenarios_path)")] -->|read + validate\non every GET| Gateway
+    Workbook["Data-analysis workbook (.xlsx)"] -.->|scripts/extract_analysis_scenarios.py| Findings
     Analysis["Analysis Components"] -->|POST /api/analysis\n(JSON or XML)| Gateway
     Gateway <-->|Dynamic Upstream\nhttp://host:port| Server["Configured tecWatch / Target Server\n(e.g., 192.168.1.10:8080)"]
     Config["config.yaml / Env Vars"] -.->|Dynamic Settings| Gateway
@@ -35,7 +37,8 @@ flowchart LR
 1. On initial load the Web GUI calls `GET /api/status` and `GET /api/analysis`.
 2. `GET /api/status` is proxied to the configured tecWatch server and validated.
 3. `GET /api/analysis` reads the configured analysis report file (produced by the data-analysis component), validates it, and returns it unchanged.
-4. Analysis components may submit results with `POST /api/analysis`; they are validated and forwarded to the configured target server. The Web GUI never posts analysis data.
+4. The GUI's **Analysis Findings** page calls `GET /api/analysis/scenarios`, which serves the failure-analysis scenarios extracted from the data-analysis workbook (read and validated on every request, returned unchanged).
+5. Analysis components may submit results with `POST /api/analysis`; they are validated and forwarded to the configured target server. The Web GUI never posts analysis data.
 
 ---
 
@@ -55,8 +58,9 @@ api:
   max_payload_bytes: 1048576          # 1 MB maximum allowed request size
 
 analysis:
-  report_path: "data/data-analysis-report.json"  # Report served by GET /api/analysis (relative to the backend folder)
-  max_report_bytes: 1048576                       # 1 MB maximum report length
+  report_path: "data/data-analysis-report.json"   # Report served by GET /api/analysis (relative to the backend folder)
+  scenarios_path: "data/analysis-scenarios.json"  # Findings served by GET /api/analysis/scenarios
+  max_report_bytes: 1048576                        # 1 MB maximum length of each analysis file
 
 gateway:
   listen_host: "0.0.0.0"     # Interface where this API binds
@@ -72,6 +76,7 @@ Configuration values can also be set via environment variables without touching 
 - `TECWATCH_STATUS_ENDPOINT`: Overrides `api.status_endpoint`
 - `TECWATCH_RESULT_ENDPOINT`: Overrides `api.result_endpoint`
 - `TECWATCH_ANALYSIS_REPORT_PATH`: Overrides `analysis.report_path`
+- `TECWATCH_ANALYSIS_SCENARIOS_PATH`: Overrides `analysis.scenarios_path`
 
 ### Live Configuration Reload
 You can reload configuration at runtime without restarting the service by issuing:
@@ -84,16 +89,16 @@ POST /api/config/reload
 ## 4. API Endpoints
 
 ### 4.1 GET Status API (`/api/status`)
-Retrieves current device telemetry from the configured upstream tecWatch server.
+Retrieves the current status of the monitored SCI-TDS interface from the configured upstream tecWatch server and validates it. The status is designed for the DB trial operator: is the RaSTA link to the object controller up, which state do the GFM-A sections report, what is the test unit doing, and which alerts are active.
 
 - **URL**: `/api/status`
 - **Method**: `GET`
 - **Query Parameters**:
-  - `device_id` *(optional, string, 1-64 chars)*: Target device identifier.
+  - `device_id` *(optional, string, 1-64 chars)*: Technical ID of the object controller (e.g. `DETHMM AZA34##0001`, URL-encoded).
 
 #### Request Example:
 ```http
-GET /api/status?device_id=TW-10928 HTTP/1.1
+GET /api/status?device_id=DETHMM%20AZA34%23%230001 HTTP/1.1
 Host: localhost:8000
 Accept: application/json
 ```
@@ -104,15 +109,61 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-  "device_id": "TW-10928",
-  "status": "OPERATIONAL",
-  "battery_level": 94.5,
-  "uptime_seconds": 36000,
-  "temperature": 28.4,
-  "timestamp": "2026-10-02T12:00:00Z",
-  "active_alerts": []
+  "device_id": "DETHMM AZA34##0001",
+  "status": "DEGRADED",
+  "timestamp": "2026-10-07T07:30:00Z",
+  "link": {
+    "state": "CONNECTED",
+    "protocol": "SCI-TDS Baseline 5 over RaSTA",
+    "btp_version": "01",
+    "version_check": "BTP-Versionswerte gleich",
+    "local_endpoint": "DETHMM ZE 35##0001 (1.208.188.16:24001)",
+    "remote_endpoint": "DETHMM AZA34##0001 (10.129.15.2:24001)",
+    "heartbeat_interval_ms": 300,
+    "last_message_at": "2026-10-07T07:29:59.880Z"
+  },
+  "track_sections": [
+    {
+      "section": "34W1",
+      "section_type": "GFM-A",
+      "occupancy": "DISTURBED",
+      "resettable": false,
+      "axle_count": 0,
+      "since": "2026-10-02T10:27:06.906Z"
+    }
+  ],
+  "test_execution": {
+    "state": "STOPPED",
+    "test_unit": "TDS-Test",
+    "configuration": "ZE_RealOC_Stimulation.cfg",
+    "current_test_case": "TC_NPRO.295.00522.01",
+    "passed": 2,
+    "failed": 2,
+    "inconclusive": 1
+  },
+  "active_alerts": [
+    "GFM-A 34W1 gestört (disturbed) and nicht grundstellbar: AZG/AZGH will be discarded",
+    "Test unit stopped manually: TC_NPRO.295.00522.01 inconclusive"
+  ]
 }
 ```
+
+#### Status Fields:
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `device_id` | string | Technical ID of the monitored object controller |
+| `status` | string | `OPERATIONAL`, `DEGRADED`, `DISCONNECTED` or `FAULT` |
+| `timestamp` | string (ISO 8601) | Time of the status |
+| `link.state` | string | RaSTA session: `CONNECTED`, `CONNECTING` or `DISCONNECTED` |
+| `link.protocol`, `link.btp_version`, `link.version_check` | string | Protocol and baseline, negotiated BTP version, result of the version check |
+| `link.local_endpoint`, `link.remote_endpoint` | string | ESTW-ZE and object controller (technical ID and address) |
+| `link.heartbeat_interval_ms`, `link.last_message_at` | integer, string | RaSTA heartbeat interval, last received message |
+| `track_sections[].section`, `section_type` | string | Section name (e.g. `34W1`) and type (`GFM-A`) |
+| `track_sections[].occupancy` | string | Belegungszustand: `FREE`, `OCCUPIED` or `DISTURBED` |
+| `track_sections[].resettable` | boolean | Grundstellbarkeit: `true` if AZG/AZGH would be accepted |
+| `track_sections[].axle_count`, `since` | integer, string | Axle count fill level, since when the state is reported |
+| `test_execution` | object | `state` (`IDLE`, `RUNNING`, `STOPPED`, `COMPLETED`), `test_unit`, `configuration`, `current_test_case`, `passed`, `failed`, `inconclusive` |
+| `active_alerts` | array of strings | Alerts for the trial operator |
 
 #### XML Response (`Accept: application/xml`):
 ```http
@@ -121,12 +172,38 @@ Content-Type: application/xml
 
 <?xml version="1.0" encoding="UTF-8"?>
 <tecWatchStatus>
-  <device_id>TW-10928</device_id>
-  <status>OPERATIONAL</status>
-  <battery_level>94.5</battery_level>
-  <uptime_seconds>36000</uptime_seconds>
-  <temperature>28.4</temperature>
-  <timestamp>2026-10-02T12:00:00Z</timestamp>
+  <device_id>DETHMM AZA34##0001</device_id>
+  <status>DEGRADED</status>
+  <timestamp>2026-10-07T07:30:00Z</timestamp>
+  <link>
+    <state>CONNECTED</state>
+    <protocol>SCI-TDS Baseline 5 over RaSTA</protocol>
+    <btp_version>01</btp_version>
+    <version_check>BTP-Versionswerte gleich</version_check>
+    <local_endpoint>DETHMM ZE 35##0001 (1.208.188.16:24001)</local_endpoint>
+    <remote_endpoint>DETHMM AZA34##0001 (10.129.15.2:24001)</remote_endpoint>
+    <heartbeat_interval_ms>300</heartbeat_interval_ms>
+    <last_message_at>2026-10-07T07:29:59.880Z</last_message_at>
+  </link>
+  <track_sections>
+    <section>34W1</section>
+    <section_type>GFM-A</section_type>
+    <occupancy>DISTURBED</occupancy>
+    <resettable>false</resettable>
+    <axle_count>0</axle_count>
+    <since>2026-10-02T10:27:06.906Z</since>
+  </track_sections>
+  <test_execution>
+    <state>STOPPED</state>
+    <test_unit>TDS-Test</test_unit>
+    <configuration>ZE_RealOC_Stimulation.cfg</configuration>
+    <current_test_case>TC_NPRO.295.00522.01</current_test_case>
+    <passed>2</passed>
+    <failed>2</failed>
+    <inconclusive>1</inconclusive>
+  </test_execution>
+  <active_alerts>GFM-A 34W1 gestört (disturbed) and nicht grundstellbar: AZG/AZGH will be discarded</active_alerts>
+  <active_alerts>Test unit stopped manually: TC_NPRO.295.00522.01 inconclusive</active_alerts>
 </tecWatchStatus>
 ```
 
@@ -211,6 +288,33 @@ Content-Type: application/json
 
 ---
 
+### 4.4 GET Analysis Scenarios API (`/api/analysis/scenarios`)
+Called by the Web GUI's **Analysis Findings** page. Reads the configured analysis scenarios file (`analysis.scenarios_path`, default `data/analysis-scenarios.json`), validates it against `src/models/scenarios.py` and returns it unchanged. The file is generated from the data-analysis workbook with `scripts/extract_analysis_scenarios.py`.
+
+- **URL**: `/api/analysis/scenarios`
+- **Method**: `GET`
+- **Supported Headers**: `Accept`: `application/json` (default) or `application/xml`
+
+#### Response Structure:
+| Key | Content |
+| :--- | :--- |
+| `source_file`, `title` | Workbook the data was extracted from, title of the analysis |
+| `test_run` | `name`, `overall_verdict`, `sut`, `test_system`, `data_sources`, `time_correlation` |
+| `test_cases[]` | `number`, `test_case_id`, `variant`, `title`, `verdict` (`Pass`, `Fail`, `Inconclusive`), `window_start_s`, `window_end_s`, `failure_point`, `root_cause`, `scenario_ids` |
+| `scenarios[]` | `id` (`S01`…), `title`, `category`, `test_cases`, `test_case_scope`, `applies_to_all_test_cases`, `data_sources[]` (`type`: `pdf`, `pcap`, `blf`, `write_log`, `test_spec`, `telegram_xlsx`, `lua_dissector`; `label`), `severity` (`High`, `Medium`, `Low`, `Info`), `confidence` (`High`, `Medium`, `Low`), `symptom`, `evidence[]`, `root_cause`, `potential_reasons[]`, `recommendation`, `method` |
+| `timeline[]` | `canoe_time_s`, `wall_clock`, `pcap_frame`, `source`, `direction`, `event`, `phase`, `test_case_id`, `comment`, `scenario_ids` |
+| `gfma_state_history` | `section`, `coding_note`, `states[]` (`canoe_time_s`, `pcap_frame`, `occupancy_code`/`occupancy`, `resettable_code`/`resettable`, `axle_count`, `until_s`, `duration_s`, `duration_note`, `phase`, `test_case_id`, `remark`) |
+| `method` | `steps[]` (`step`, `activity`, `details`), `open_questions[]` (`id`, `question`, `scenario_ids`) |
+
+#### Error Responses:
+| Situation | Status | `error` |
+| :--- | :--- | :--- |
+| Scenarios file does not exist | `404 Not Found` | `Analysis Scenarios Not Found` |
+| File too large, unreadable, not UTF-8, malformed JSON, not a JSON object | `500 Internal Server Error` | `Invalid Analysis Scenarios` |
+| Schema violation or unresolved reference (unknown scenario/test case, duplicate IDs) | `500 Internal Server Error` | `Invalid Analysis Scenarios` (+ `validation_errors`) |
+
+---
+
 ## 5. Analysis Report Format
 
 Defined in `src/models/analysis.py`. Fields marked *optional* may be omitted (lists default to `[]`, `fields` to `{}`, nullable values to `null`). Any field not listed here is rejected as unexpected content.
@@ -282,7 +386,7 @@ Defined in `src/models/analysis.py`. Fields marked *optional* may be omitted (li
 | **Invalid JSON** | Intercepts `JSONDecodeError` | `400 Bad Request` | `Malformed JSON syntax at line X, col Y` |
 | **Invalid XML** | `defusedxml` parser | `400 Bad Request` | `Invalid XML syntax or entity error` |
 | **Unexpected Content** | Pydantic `extra = 'forbid'`, enumerations, patterns | `422 Unprocessable Entity` | `Unexpected field '<field>' is not permitted` |
-| **Consistency** | Model validators (see 6.3) | `422 Unprocessable Entity` | e.g. `message_id 'x' does not match any trace message` |
+| **Consistency** | Model validators (see 6.5) | `422 Unprocessable Entity` | e.g. `message_id 'x' does not match any trace message` |
 
 ### 6.2 GET `/api/analysis` report file
 | Validation Check | Mechanism | Failure Code | Error Details |
@@ -292,7 +396,17 @@ Defined in `src/models/analysis.py`. Fields marked *optional* may be omitted (li
 | **Message Format** | UTF-8 JSON object | `500 Internal Server Error` | `Malformed JSON syntax at line X, column Y`, `must be a JSON object` |
 | **Schema** (lengths, mandatory fields, data types, unexpected content, consistency) | Same model as POST | `500 Internal Server Error` | `validation_errors` list as in section 7 |
 
-### 6.3 Consistency rules
+### 6.3 GET `/api/analysis/scenarios` scenarios file
+Same file checks as 6.2 with `"error": "Invalid Analysis Scenarios"` / `"Analysis Scenarios Not Found"`. Scenario and test-case IDs must be unique and every reference must resolve (test cases → scenarios, scenarios → test cases, timeline events, GFM-A states, open questions).
+
+### 6.4 GET `/api/status` tecWatch response
+| Validation Check | Mechanism | Failure Code | Error Details |
+| :--- | :--- | :--- | :--- |
+| **Mandatory Fields / Data Types / Allowed Values** | Strict `StatusResponse` model (`src/models/status.py`) | `502 Bad Gateway` | `validation_errors` list |
+| **Unexpected Content** | Pydantic `extra = 'forbid'` | `502 Bad Gateway` | `Unexpected field '<field>' is not permitted` |
+| **Upstream unreachable / error / timeout** | HTTP client | `502` / `504` | `Cannot connect ...`, `Target server returned error code ...`, `timed out` |
+
+### 6.5 Consistency rules (analysis report)
 - Trace message `message_id` values are unique.
 - A failure finding's `message_id` (when not `null`) references an existing trace message.
 - `expected_length` and `actual_length` are both set or both `null`, and `actual_length` equals the `length` of the referenced trace message.

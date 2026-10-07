@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 import httpx
 from config.settings import ConfigManager
 from src.utils.logger import logger
@@ -25,6 +25,14 @@ class UpstreamResponseError(UpstreamError):
         super().__init__(f"Upstream returned HTTP {status_code}: {detail}")
         self.status_code = status_code
         self.detail = detail
+
+
+class UpstreamDataError(UpstreamError):
+    """Raised when the upstream server answers with data that fails validation."""
+    def __init__(self, detail: str, validation_errors: List[Dict[str, Any]]):
+        super().__init__(detail)
+        self.detail = detail
+        self.validation_errors = validation_errors
 
 
 class TecWatchClient:

@@ -31,17 +31,29 @@ class ApiConfig(BaseModel):
         return v
 
 
+def _resolve_path(path_text: str) -> Path:
+    path = Path(path_text).expanduser()
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
 class AnalysisConfig(BaseModel):
     report_path: str = Field(
         default="data/data-analysis-report.json",
         description="Analysis report JSON file served by GET /api/analysis",
     )
-    max_report_bytes: int = Field(default=1048576, ge=1024, description="Max allowed analysis report size in bytes")
+    scenarios_path: str = Field(
+        default="data/analysis-scenarios.json",
+        description="Analysis scenarios (findings) JSON file served by GET /api/analysis/scenarios",
+    )
+    max_report_bytes: int = Field(default=1048576, ge=1024, description="Max allowed size of each analysis file in bytes")
 
     @property
     def resolved_report_path(self) -> Path:
-        path = Path(self.report_path).expanduser()
-        return path if path.is_absolute() else PROJECT_ROOT / path
+        return _resolve_path(self.report_path)
+
+    @property
+    def resolved_scenarios_path(self) -> Path:
+        return _resolve_path(self.scenarios_path)
 
 
 class GatewayConfig(BaseModel):
@@ -101,6 +113,8 @@ class ConfigManager:
             raw_data.setdefault("api", {})["result_endpoint"] = os.environ["TECWATCH_RESULT_ENDPOINT"]
         if "TECWATCH_ANALYSIS_REPORT_PATH" in os.environ:
             raw_data.setdefault("analysis", {})["report_path"] = os.environ["TECWATCH_ANALYSIS_REPORT_PATH"]
+        if "TECWATCH_ANALYSIS_SCENARIOS_PATH" in os.environ:
+            raw_data.setdefault("analysis", {})["scenarios_path"] = os.environ["TECWATCH_ANALYSIS_SCENARIOS_PATH"]
 
         self._config = AppConfig(**raw_data)
         return self._config

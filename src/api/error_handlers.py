@@ -4,7 +4,12 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
 from src.services.analysis_report import AnalysisReportError
-from src.services.client import UpstreamConnectionError, UpstreamResponseError, UpstreamTimeoutError
+from src.services.client import (
+    UpstreamConnectionError,
+    UpstreamDataError,
+    UpstreamResponseError,
+    UpstreamTimeoutError,
+)
 from src.services.xml_handler import XMLParseError
 from src.utils.logger import logger
 
@@ -101,6 +106,19 @@ def register_error_handlers(app: FastAPI) -> None:
             content={
                 "error": "Gateway Timeout",
                 "detail": str(exc),
+            },
+        )
+
+    @app.exception_handler(UpstreamDataError)
+    async def upstream_data_handler(request: Request, exc: UpstreamDataError):
+        formatted_errors = format_validation_errors(exc.validation_errors)
+        logger.error(f"Upstream data rejected on {request.url.path}: {formatted_errors}")
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": "Bad Gateway",
+                "detail": exc.detail,
+                "validation_errors": formatted_errors,
             },
         )
 

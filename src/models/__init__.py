@@ -6,6 +6,7 @@ from src.models.analysis import (
     AnalysisReport,
     AnalysisResultResponse,
 )
+from src.models.scenarios import AnalysisScenarios
 
 __all__ = [
     "StatusQuery",
@@ -15,4 +16,5 @@ __all__ = [
     "TraceMessage",
     "AnalysisReport",
     "AnalysisResultResponse",
+    "AnalysisScenarios",
 ]

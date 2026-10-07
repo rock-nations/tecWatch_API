@@ -46,7 +46,7 @@ FieldValue = Union[bool, int, float, Annotated[str, StringConstraints(max_length
 EvidenceItem = Annotated[str, StringConstraints(min_length=1, max_length=256)]
 
 
-class _ReportModel(BaseModel):
+class StrictModel(BaseModel):
     """
     Strict base model: JSON values must already have the declared type ("47" is not an integer)
     and undeclared keys are rejected. XML input is validated with strict=False, since XML text
@@ -55,7 +55,7 @@ class _ReportModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
-class TraceMessage(_ReportModel):
+class TraceMessage(StrictModel):
     """Represents a decoded telegram in the frontend Trace-Data View."""
 
     message_id: str = Field(..., min_length=1, max_length=64, description="Unique message identifier (e.g. frame-380-2)")
@@ -84,7 +84,7 @@ class TraceMessage(_ReportModel):
         return {} if _is_xml(info) and value == "" else value
 
 
-class FailureFinding(_ReportModel):
+class FailureFinding(StrictModel):
     """Represents an item in the frontend Failure-Analysis View."""
 
     message_id: Optional[str] = Field(default=None, min_length=1, max_length=64, description="Referenced trace message (null if no single message applies)")
@@ -116,7 +116,7 @@ class FailureFinding(_ReportModel):
         return self
 
 
-class DataComparison(_ReportModel):
+class DataComparison(StrictModel):
     """Represents a row in the frontend Data-Structure Comparison View."""
 
     field: str = Field(..., min_length=1, max_length=128, description="Compared field (e.g. Test verdict)")
@@ -131,7 +131,7 @@ class DataComparison(_ReportModel):
         return _xml_empty_to_none(value, info)
 
 
-class AnalysisReport(_ReportModel):
+class AnalysisReport(StrictModel):
     """
     Trace-analysis report: served by GET /api/analysis from the configured report file
     and accepted by POST /api/analysis from analysis components.

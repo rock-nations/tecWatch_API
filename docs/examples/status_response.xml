@@ -1,9 +1,35 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <tecWatchStatus>
-  <device_id>TW-10928</device_id>
-  <status>OPERATIONAL</status>
-  <battery_level>94.5</battery_level>
-  <uptime_seconds>36000</uptime_seconds>
-  <temperature>28.4</temperature>
-  <timestamp>2026-10-02T12:00:00Z</timestamp>
+  <device_id>DETHMM AZA34##0001</device_id>
+  <status>DEGRADED</status>
+  <timestamp>2026-10-07T07:30:00Z</timestamp>
+  <link>
+    <state>CONNECTED</state>
+    <protocol>SCI-TDS Baseline 5 over RaSTA</protocol>
+    <btp_version>01</btp_version>
+    <version_check>BTP-Versionswerte gleich</version_check>
+    <local_endpoint>DETHMM ZE 35##0001 (1.208.188.16:24001)</local_endpoint>
+    <remote_endpoint>DETHMM AZA34##0001 (10.129.15.2:24001)</remote_endpoint>
+    <heartbeat_interval_ms>300</heartbeat_interval_ms>
+    <last_message_at>2026-10-07T07:29:59.880Z</last_message_at>
+  </link>
+  <track_sections>
+    <section>34W1</section>
+    <section_type>GFM-A</section_type>
+    <occupancy>DISTURBED</occupancy>
+    <resettable>false</resettable>
+    <axle_count>0</axle_count>
+    <since>2026-10-02T10:27:06.906Z</since>
+  </track_sections>
+  <test_execution>
+    <state>STOPPED</state>
+    <test_unit>TDS-Test</test_unit>
+    <configuration>ZE_RealOC_Stimulation.cfg</configuration>
+    <current_test_case>TC_NPRO.295.00522.01</current_test_case>
+    <passed>2</passed>
+    <failed>2</failed>
+    <inconclusive>1</inconclusive>
+  </test_execution>
+  <active_alerts>GFM-A 34W1 gestört (disturbed) and nicht grundstellbar: AZG/AZGH will be discarded</active_alerts>
+  <active_alerts>Test unit stopped manually: TC_NPRO.295.00522.01 inconclusive</active_alerts>
 </tecWatchStatus>

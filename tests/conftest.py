@@ -17,6 +17,7 @@ def clean_config():
         "TECWATCH_STATUS_ENDPOINT",
         "TECWATCH_RESULT_ENDPOINT",
         "TECWATCH_ANALYSIS_REPORT_PATH",
+        "TECWATCH_ANALYSIS_SCENARIOS_PATH",
     ]:
         os.environ.pop(key, None)
     ConfigManager.reset_instance()
@@ -115,21 +116,44 @@ def valid_report():
     }
 
 
+def _write_data_file(path, content):
+    """Writes a dict as JSON, or raw str/bytes."""
+    if isinstance(content, dict):
+        path.write_text(json.dumps(content, ensure_ascii=False), encoding="utf-8")
+    elif isinstance(content, bytes):
+        path.write_bytes(content)
+    else:
+        path.write_text(content, encoding="utf-8")
+    return path
+
+
 @pytest.fixture
 def use_report(tmp_path):
-    """Writes a report file (dict as JSON, or raw str/bytes) and points the active config at it."""
+    """Writes a report file and points the active config at it."""
     def _use_report(content):
-        report_file = tmp_path / "analysis-report.json"
-        if isinstance(content, dict):
-            report_file.write_text(json.dumps(content, ensure_ascii=False), encoding="utf-8")
-        elif isinstance(content, bytes):
-            report_file.write_bytes(content)
-        else:
-            report_file.write_text(content, encoding="utf-8")
+        report_file = _write_data_file(tmp_path / "analysis-report.json", content)
         ConfigManager.get_instance().config.analysis.report_path = str(report_file)
         return report_file
 
     return _use_report
+
+
+@pytest.fixture
+def use_scenarios(tmp_path):
+    """Writes an analysis scenarios file and points the active config at it."""
+    def _use_scenarios(content):
+        scenarios_file = _write_data_file(tmp_path / "analysis-scenarios.json", content)
+        ConfigManager.get_instance().config.analysis.scenarios_path = str(scenarios_file)
+        return scenarios_file
+
+    return _use_scenarios
+
+
+@pytest.fixture
+def shipped_scenarios():
+    """The analysis scenarios shipped in data/, parsed so tests can modify them."""
+    scenarios_file = ConfigManager.get_instance().config.analysis.resolved_scenarios_path
+    return json.loads(scenarios_file.read_text(encoding="utf-8"))
 
 
 @pytest.fixture
