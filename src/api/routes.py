@@ -6,9 +6,10 @@ from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from config.settings import ConfigManager
 from src.models.analysis import AnalysisReport, AnalysisResultResponse
+from src.models.scenarios import AnalysisScenarios
 from src.models.status import StatusResponse
-from src.services.analysis_report import load_analysis_report
-from src.services.client import TecWatchClient
+from src.services.analysis_report import load_analysis_report, load_analysis_scenarios
+from src.services.client import TecWatchClient, UpstreamDataError
 from src.services.xml_handler import XMLParseError, dict_to_xml_str, parse_xml_to_dict
 from src.utils.logger import logger
 
@@ -19,7 +20,15 @@ def get_client() -> TecWatchClient:
     return TecWatchClient()
 
 
-@router.get("/status", summary="Fetch tecWatch status information")
+@router.get(
+    "/status",
+    summary="Fetch tecWatch status information",
+    responses={
+        200: {"model": StatusResponse, "description": "Validated tecWatch status of the monitored SCI-TDS interface"},
+        502: {"description": "tecWatch server unreachable, returned an error, or sent a status that fails validation"},
+        504: {"description": "tecWatch server timed out"},
+    },
+)
 async def get_status(
     request: Request,
     device_id: Optional[str] = Query(None, min_length=1, max_length=64, description="Optional Device ID"),
@@ -32,7 +41,13 @@ async def get_status(
     raw_status = await client.fetch_status(device_id=device_id)
 
     # Validate against strict StatusResponse schema
-    validated_status = StatusResponse(**raw_status)
+    try:
+        validated_status = StatusResponse.model_validate(raw_status)
+    except ValidationError as val_err:
+        raise UpstreamDataError(
+            "tecWatch status response failed validation (check mandatory fields, data types, or unexpected content).",
+            val_err.errors(),
+        )
 
     accept_header = request.headers.get("accept", "").lower()
     if "application/xml" in accept_header or "text/xml" in accept_header:
@@ -69,6 +84,34 @@ async def get_analysis(request: Request):
         return Response(content=xml_output, media_type="application/xml")
 
     return report
+
+
+@router.get(
+    "/analysis/scenarios",
+    summary="Fetch the validated failure-analysis scenarios (findings) for the Web GUI",
+    responses={
+        200: {"model": AnalysisScenarios, "description": "The analysis scenarios exactly as stored in the scenarios file"},
+        404: {"description": "The configured analysis scenarios file does not exist"},
+        500: {"description": "The analysis scenarios file is too large, malformed, or fails schema validation"},
+    },
+)
+async def get_analysis_scenarios(request: Request):
+    """
+    Reads the configured analysis scenarios JSON file (extracted from the data-analysis workbook with
+    scripts/extract_analysis_scenarios.py), validates it and returns it unchanged.
+    The file is read on every request, so a regenerated file is served without a restart.
+    """
+    analysis_cfg = ConfigManager.get_instance().config.analysis
+    scenarios = await run_in_threadpool(
+        load_analysis_scenarios, analysis_cfg.resolved_scenarios_path, analysis_cfg.max_report_bytes
+    )
+
+    accept_header = request.headers.get("accept", "").lower()
+    if "application/xml" in accept_header or "text/xml" in accept_header:
+        xml_output = dict_to_xml_str("AnalysisScenarios", scenarios)
+        return Response(content=xml_output, media_type="application/xml")
+
+    return scenarios
 
 
 @router.post("/analysis", summary="Send post-analysis results to DBLTAS")
@@ -171,6 +214,8 @@ async def get_active_config():
         "analysis": {
             "report_path": cfg.analysis.report_path,
             "resolved_report_path": str(cfg.analysis.resolved_report_path),
+            "scenarios_path": cfg.analysis.scenarios_path,
+            "resolved_scenarios_path": str(cfg.analysis.resolved_scenarios_path),
             "max_report_bytes": cfg.analysis.max_report_bytes,
         },
         "gateway": {

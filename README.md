@@ -6,6 +6,8 @@ A configurable API layer for communication between **tecWatch**, **analysis comp
 
 - **Zero-Code Server Switching**: Point to any remote tecWatch hardware or DBLTAS server simply by editing `config/config.yaml` or setting environment variables.
 - **Validated Analysis Report Serving**: `GET /api/analysis` reads the configured analysis report JSON file on every request, validates it, and returns it unchanged to the Web GUI.
+- **Analysis Findings API**: `GET /api/analysis/scenarios` serves the failure-analysis scenarios extracted from the data-analysis workbook: findings with evidence and recommendations, test-case verdicts, the correlated multi-source timeline, the GFM-A state history and the analysis method.
+- **Railway-Oriented tecWatch Status**: `GET /api/status` reports what the DB trial operator monitors: the SCI-TDS/RaSTA link between ESTW-ZE and object controller, GFM-A track-section states, the test unit and active alerts.
 - **Dual Payload Formats (JSON & XML)**: Seamlessly accepts and generates both JSON (`application/json`) and XML (`application/xml`).
 - **Comprehensive Multi-Tier Validation**:
   - **Message Length**: Enforces request size limits via ASGI middleware (`413 Payload Too Large`) and field length bounds.
@@ -24,14 +26,16 @@ A configurable API layer for communication between **tecWatch**, **analysis comp
 
 ```mermaid
 flowchart LR
-    GUI["DBLTAS Web GUI"] -->|GET /api/status\nGET /api/analysis| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
+    GUI["DBLTAS Web GUI"] -->|GET /api/status\nGET /api/analysis\nGET /api/analysis/scenarios| Gateway["tecWatch API Layer\n(FastAPI Gateway)"]
     Report[("Analysis report JSON\n(analysis.report_path)")] -->|read + validate\non every GET| Gateway
+    Findings[("Analysis scenarios JSON\n(analysis.scenarios_path)")] -->|read + validate\non every GET| Gateway
+    Workbook["Data-analysis workbook (.xlsx)"] -.->|scripts/extract_analysis_scenarios.py| Findings
     AnalysisComp["Analysis Components"] -->|POST /api/analysis\n(JSON or XML)| Gateway
     Gateway <-->|Dynamic Upstream\nhttp://host:port| Server["Configured tecWatch / Target Server\n(e.g., 192.168.1.10:8080)"]
     Config["config/config.yaml"] -.->|Dynamic Settings| Gateway
 ```
 
-On initial load the Web GUI calls `GET /api/status` (proxied to the configured tecWatch server) and `GET /api/analysis` (read from the analysis report file). The GUI never posts analysis data; `POST /api/analysis` is for analysis components and forwards validated results to the configured target server.
+On initial load the Web GUI calls `GET /api/status` (proxied to the configured tecWatch server) and `GET /api/analysis` (read from the analysis report file). Its **Analysis Findings** page calls `GET /api/analysis/scenarios`. The GUI never posts analysis data; `POST /api/analysis` is for analysis components and forwards validated results to the configured target server.
 
 ---
 
@@ -66,8 +70,9 @@ api:
   max_payload_bytes: 1048576          # 1 MB maximum payload length
 
 analysis:
-  report_path: "data/data-analysis-report.json"  # Report served by GET /api/analysis
-  max_report_bytes: 1048576                       # 1 MB maximum report length
+  report_path: "data/data-analysis-report.json"   # Report served by GET /api/analysis
+  scenarios_path: "data/analysis-scenarios.json"  # Findings served by GET /api/analysis/scenarios
+  max_report_bytes: 1048576                        # 1 MB maximum length of each analysis file
 
 gateway:
   listen_host: "0.0.0.0"
@@ -83,12 +88,13 @@ gateway:
 > export TECWATCH_SERVER_PORT="9000"
 > ```
 
-> **Analysis Report File**:
-> A relative `analysis.report_path` is resolved against the backend folder; absolute paths work too. To serve another report, change the path in `config/config.yaml` (then `POST /api/config/reload`) or set:
+> **Analysis Files**:
+> Relative `analysis.report_path` / `analysis.scenarios_path` values are resolved against the backend folder; absolute paths work too. To serve other files, change the paths in `config/config.yaml` (then `POST /api/config/reload`) or set:
 > ```bash
 > export TECWATCH_ANALYSIS_REPORT_PATH="/path/to/data-analysis-report.json"
+> export TECWATCH_ANALYSIS_SCENARIOS_PATH="/path/to/analysis-scenarios.json"
 > ```
-> The file is read on every request, so a regenerated report is served without restarting the API.
+> Both files are read on every request, so regenerated files are served without restarting the API.
 
 ### 3. Running the API
 
@@ -111,43 +117,67 @@ Interactive documentation is available at:
 
 ### 1. GET Status (`/api/status`)
 
+Proxied to the configured tecWatch server and validated. The status describes the monitored SCI-TDS interface of the test bench from the DB trial operator's perspective.
+
 #### Request (JSON):
 ```bash
-curl -X GET "http://localhost:8000/api/status?device_id=TW-10928" \
+curl -G "http://localhost:8000/api/status" \
+  --data-urlencode "device_id=DETHMM AZA34##0001" \
   -H "Accept: application/json"
 ```
 
-**Response (JSON)**:
+**Response (JSON)** ([example](docs/examples/status_response.json), [XML](docs/examples/status_response.xml)):
 ```json
 {
-  "device_id": "TW-10928",
-  "status": "OPERATIONAL",
-  "battery_level": 94.5,
-  "uptime_seconds": 36000,
-  "temperature": 28.4,
-  "timestamp": "2026-10-02T12:00:00Z",
-  "active_alerts": []
+  "device_id": "DETHMM AZA34##0001",
+  "status": "DEGRADED",
+  "timestamp": "2026-10-07T07:30:00Z",
+  "link": {
+    "state": "CONNECTED",
+    "protocol": "SCI-TDS Baseline 5 over RaSTA",
+    "btp_version": "01",
+    "version_check": "BTP-Versionswerte gleich",
+    "local_endpoint": "DETHMM ZE 35##0001 (1.208.188.16:24001)",
+    "remote_endpoint": "DETHMM AZA34##0001 (10.129.15.2:24001)",
+    "heartbeat_interval_ms": 300,
+    "last_message_at": "2026-10-07T07:29:59.880Z"
+  },
+  "track_sections": [
+    {
+      "section": "34W1",
+      "section_type": "GFM-A",
+      "occupancy": "DISTURBED",
+      "resettable": false,
+      "axle_count": 0,
+      "since": "2026-10-02T10:27:06.906Z"
+    }
+  ],
+  "test_execution": {
+    "state": "STOPPED",
+    "test_unit": "TDS-Test",
+    "configuration": "ZE_RealOC_Stimulation.cfg",
+    "current_test_case": "TC_NPRO.295.00522.01",
+    "passed": 2,
+    "failed": 2,
+    "inconclusive": 1
+  },
+  "active_alerts": [
+    "GFM-A 34W1 gestört (disturbed) and nicht grundstellbar: AZG/AZGH will be discarded",
+    "Test unit stopped manually: TC_NPRO.295.00522.01 inconclusive"
+  ]
 }
 ```
 
-#### Request (XML):
-```bash
-curl -X GET "http://localhost:8000/api/status?device_id=TW-10928" \
-  -H "Accept: application/xml"
-```
+| Field | Meaning |
+| :--- | :--- |
+| `device_id` | Technical ID of the monitored object controller (OC) |
+| `status` | Overall state for the operator: `OPERATIONAL`, `DEGRADED`, `DISCONNECTED`, `FAULT` |
+| `link` | RaSTA session state (`CONNECTED`, `CONNECTING`, `DISCONNECTED`), protocol/baseline, BTP version check, ESTW-ZE and OC endpoints, heartbeat interval, last message |
+| `track_sections` | GFM-A sections: Belegungszustand (`FREE`, `OCCUPIED`, `DISTURBED`), Grundstellbarkeit (`resettable`), axle count, since when |
+| `test_execution` | Test unit state (`IDLE`, `RUNNING`, `STOPPED`, `COMPLETED`), configuration, current test case, verdict counts |
+| `active_alerts` | Alerts for the trial operator |
 
-**Response (XML)**:
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<tecWatchStatus>
-  <device_id>TW-10928</device_id>
-  <status>OPERATIONAL</status>
-  <battery_level>94.5</battery_level>
-  <uptime_seconds>36000</uptime_seconds>
-  <temperature>28.4</temperature>
-  <timestamp>2026-10-02T12:00:00Z</timestamp>
-</tecWatchStatus>
-```
+Add `-H "Accept: application/xml"` for the XML representation (`<tecWatchStatus>`). If tecWatch answers with data that fails validation, the API returns `502 Bad Gateway` with a `validation_errors` list.
 
 ---
 
@@ -235,7 +265,35 @@ If the report file does not exist, the API answers `404 Not Found` with `"error"
 
 ---
 
-### 3. POST Analysis Result (`/api/analysis`)
+### 3. GET Analysis Scenarios (`/api/analysis/scenarios`) - Analysis Findings Page
+
+Returns the failure-analysis scenarios of a test run, extracted from the data-analysis workbook into [`data/analysis-scenarios.json`](data/analysis-scenarios.json). The file is read and validated on every request and returned unchanged.
+
+```bash
+curl -s "http://localhost:8000/api/analysis/scenarios"
+```
+
+| Key | Content |
+| :--- | :--- |
+| `test_run` | Test run, overall verdict, SUT, test system, data sources, time correlation |
+| `test_cases` | Verdict, CANoe time window, failure point, most probable root cause and related scenarios per test case |
+| `scenarios` | Findings (`S01`…): category, severity, confidence, data sources, symptom, evidence, root cause, potential reasons, recommendation, method |
+| `timeline` | Correlated events from pcap, PDF report and BLF with CANoe time, wall clock, frame, direction and scenario references |
+| `gfma_state_history` | GFM-A state changes (Belegungszustand, Grundstellungsfähigkeit, axle count) with durations |
+| `method` | Reproducible analysis steps and open questions for the team |
+
+Errors: `404 Not Found` (`"Analysis Scenarios Not Found"`) if the file is missing, `500` (`"Invalid Analysis Scenarios"`) with `validation_errors` if it is too large, malformed or fails the schema (`src/models/scenarios.py`), including unknown scenario or test-case references.
+
+#### Regenerating the JSON from the workbook
+```bash
+pip install openpyxl   # only needed for the extraction script
+python scripts/extract_analysis_scenarios.py "../TDS_Task/TDS_Task/SCI_TDS_Analysis_Scenarios_2026-10-02.xlsx"
+```
+The script locates columns by their header names, resolves short test-case references (e.g. `02288.01`) to full IDs, normalizes data sources and computes the GFM-A state durations (formula cells in the workbook).
+
+---
+
+### 4. POST Analysis Result (`/api/analysis`)
 
 Lets analysis components submit a result in the same structure as the analysis report. Accepts both JSON and XML. The result is validated and forwarded to the configured target server (`server` + `api.result_endpoint`); it does not replace the report served by `GET /api/analysis`. The Web GUI does not use this endpoint.
 
@@ -268,7 +326,7 @@ In XML, repeated elements form lists (`<trace_messages>`, `<evidence>`) and empt
 
 ---
 
-### 4. Dynamic Configuration Inspection & Hot Reload
+### 5. Dynamic Configuration Inspection & Hot Reload
 
 #### Check current configuration:
 ```bash
@@ -307,6 +365,18 @@ The same schema (`src/models/analysis.py`) validates the report file served by `
 | **Invalid / Malformed JSON, not UTF-8, not an object** | `500 Internal Server Error` | `"Malformed JSON syntax at line X, column Y: ..."` |
 | **Schema Violations** (mandatory fields, data types, field lengths, unexpected content) | `500 Internal Server Error` | `validation_errors` list with the same messages as the POST table |
 
+### GET `/api/analysis/scenarios` (analysis scenarios file)
+
+Same checks as the report file (`404` if missing, `500` with `"error": "Invalid Analysis Scenarios"` otherwise). Additionally, scenario and test-case IDs must be unique and every reference (test case → scenarios, scenario → test cases, timeline, GFM-A states, open questions) must resolve.
+
+### GET `/api/status` (tecWatch response)
+
+| Validation Test | Status Code | Error Message / Details |
+| :--- | :--- | :--- |
+| **tecWatch unreachable / error code** | `502 Bad Gateway` | `"Cannot connect to target server ..."` / `"Target server returned error code ..."` |
+| **tecWatch timeout** | `504 Gateway Timeout` | `"Connection to target server ... timed out"` |
+| **Status fails validation** (mandatory fields, data types, allowed values, unexpected content) | `502 Bad Gateway` | `validation_errors` list |
+
 ### Report schema rules
 
 - JSON values must already have the declared type: `"length": "47"` is rejected, timestamps must be ISO 8601 strings. (XML is untyped, so XML values are converted.)
@@ -335,7 +405,10 @@ tecwatch_api/
 │   ├── config.yaml          # Target server, API endpoints & analysis report configuration
 │   └── settings.py          # Dynamic configuration loader & Pydantic models
 ├── data/
-│   └── data-analysis-report.json # Analysis report served by GET /api/analysis
+│   ├── data-analysis-report.json # Analysis report served by GET /api/analysis
+│   └── analysis-scenarios.json   # Findings served by GET /api/analysis/scenarios
+├── scripts/
+│   └── extract_analysis_scenarios.py # Workbook (.xlsx) -> data/analysis-scenarios.json
 ├── src/
 │   ├── main.py              # Application entrypoint & ASGI factory
 │   ├── api/
@@ -344,9 +417,10 @@ tecwatch_api/
 │   │   └── error_handlers.py# Standardized JSON/XML error handlers
 │   ├── models/
 │   │   ├── status.py        # Strict Pydantic models for status
-│   │   └── analysis.py      # Strict Pydantic models for the analysis report
+│   │   ├── analysis.py      # Strict Pydantic models for the analysis report
+│   │   └── scenarios.py     # Strict Pydantic models for the analysis scenarios
 │   ├── services/
-│   │   ├── analysis_report.py # Reads & validates the analysis report file
+│   │   ├── analysis_report.py # Reads & validates the analysis report and scenarios files
 │   │   ├── client.py        # Async upstream HTTP client
 │   │   ├── xml_handler.py   # Safe XML parser and serializer (defusedxml)
 │   │   └── mock_server.py   # Built-in mock tecWatch/DBLTAS server
@@ -357,7 +431,8 @@ tecwatch_api/
 │   ├── test_config.py       # Server switching & reload tests
 │   ├── test_validations.py  # 6-point validation test suite
 │   ├── test_status_api.py   # Status endpoint unit/integration tests
-│   └── test_analysis_api.py # Analysis report (GET) & post-analysis (POST) tests
+│   ├── test_analysis_api.py # Analysis report (GET) & post-analysis (POST) tests
+│   └── test_scenarios_api.py # Analysis scenarios (GET) tests
 ├── docs/
 │   ├── api_documentation.md # Detailed specification document
 │   └── examples/            # Sample JSON and XML payloads

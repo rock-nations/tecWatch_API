@@ -1,0 +1,1878 @@
+{
+  "source_file": "SCI_TDS_Analysis_Scenarios_2026-10-02.xlsx",
+  "title": "SCI-TDS Real-OC Test Run 2026-10-02 – Failure Analysis Scenarios",
+  "test_run": {
+    "name": "Real_SCI-TDS_2026-10-02_12-24-11 (CANoe 20.0.195, config ZE_RealOC_Stimulation.cfg / STIMULATE_REAL_OC, DBLTAS-20)",
+    "overall_verdict": "FAIL – 2 Pass, 2 Fail, 1 Inconclusive; test unit stopped manually (incomplete)",
+    "sut": "Real object controller Az-System (GFM-A '34W1', technical ID DETHMM AZA34##0001) at 10.129.15.2, SCI-TDS Baseline 5",
+    "test_system": "CANoe as ESTW-ZE (DETHMM ZE 35##0001) at 1.208.188.16, VN5650, VLAN 1201, UDP 24001 <-> 24001 (RaSTA / BTP)",
+    "data_sources": "PDF test report (65 p.), CANoe write-window log TDS_Report_21026.txt, RealOCWorking_TDS_21026.pcapng (2159 frames), RealOCWorking_TDS_21026.blf (11 095 objects: 2159 Ethernet frames + 8915 system-variable events + test-structure events), 4 test-specification extracts (TC_*.txt), SCI_TDS_Telegrams_3.4.6_to_3.4.16.xlsx, DB Lua dissectors (LUA.zip)",
+    "time_correlation": "CANoe time (PDF report / BLF / write log) = pcap frame.time_relative + 3.462272 s. CANoe time 0 = 2026-10-02 12:23:59.953 (+02:00). Verified: all 2159 BLF Ethernet frames match the pcap within 0.5 µs; RaSTA 'Timestamp' in frames sent by CANoe = CANoe time in µs (e.g. AZGH frame 133 carries 64545970 = report step at 64.545970 s)."
+  },
+  "test_cases": [
+    {
+      "number": 1,
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "variant": "O",
+      "title": "AZGH discarded when GFM-A 'belegt & grundstellbar'",
+      "verdict": "Pass",
+      "window_start_s": 12.4,
+      "window_end_s": 91.55,
+      "failure_point": null,
+      "root_cause": "OC discarded AZGH as specified (no 3.4.11 within 500 ms; actually silent for 7.0 s). Valid pass.",
+      "scenario_ids": [
+        "S09",
+        "S10"
+      ]
+    },
+    {
+      "number": 2,
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "variant": "F",
+      "title": "AZGH discarded when GFM-A 'frei & nicht grundstellbar'",
+      "verdict": "Pass",
+      "window_start_s": 91.55,
+      "window_end_s": 139.51,
+      "failure_point": null,
+      "root_cause": "OC discarded AZGH as specified (silent for 7.0 s). Valid pass; note: no 'Kommando abgewiesen' (0x0006) sent.",
+      "scenario_ids": [
+        "S09",
+        "S10"
+      ]
+    },
+    {
+      "number": 3,
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "variant": "O",
+      "title": "AZGH makes GFM-A 'belegt & grundstellbar'",
+      "verdict": "Fail",
+      "window_start_s": 139.51,
+      "window_end_s": 313.49,
+      "failure_point": "Preparation (precondition) – step 1 never executed; then cleanup failed",
+      "root_cause": "Manual occupation produced an invalid axle count (0x0000) and the GFM-A switched to 'gestört' 102 ms later; precondition 'belegt & nicht grundstellbar, stable 20 s' was never reached within 120 s. Cleanup AZGH was sent while not grundstellbar and was discarded.",
+      "scenario_ids": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S06",
+        "S07"
+      ]
+    },
+    {
+      "number": 4,
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "variant": "F-ReZE",
+      "title": "AZGH via local operation discarded",
+      "verdict": "Fail",
+      "window_start_s": 313.49,
+      "window_end_s": 487.5,
+      "failure_point": "Preparation (precondition) – step 1 never executed; then cleanup failed",
+      "root_cause": "Follow-up failure: TC3 left GFM-A 'gestört & nicht grundstellbar'. 'Freifahren' cannot clear a disturbed section; operator additionally sent AZGH + AZG from the panel (forbidden) – both discarded. Timeout after 120 s.",
+      "scenario_ids": [
+        "S05",
+        "S06",
+        "S08",
+        "S11"
+      ]
+    },
+    {
+      "number": 5,
+      "test_case_id": "TC_NPRO.295.00522.01",
+      "variant": "O-ReZE",
+      "title": null,
+      "verdict": "Inconclusive",
+      "window_start_s": 487.5,
+      "window_end_s": 488.32,
+      "failure_point": "40 s wait before BTP connect",
+      "root_cause": "Test unit stopped manually by the tester (no defined start state after failed cleanup).",
+      "scenario_ids": [
+        "S12"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "S01",
+      "title": "GFM-A became 'gestört' 102 ms after manual occupation – precondition of TC3 impossible",
+      "category": "SUT state / physical stimulation",
+      "test_cases": [
+        "TC_NPRO.295.02288.01"
+      ],
+      "test_case_scope": "02288.01",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pdf",
+          "label": "PDF"
+        },
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "write_log",
+          "label": "write log"
+        },
+        {
+          "type": "blf",
+          "label": "BLF"
+        }
+      ],
+      "severity": "High",
+      "confidence": "High",
+      "symptom": "TC3 'GFM-A vollständig freifahren, danach stabil belegen' FAIL at 300.288 s: 'stabilen Sollzustand ... innerhalb von 120000 ms erforderlich'. Target was Belegung=2, Grundstellbarkeit=0.",
+      "evidence": [
+        "180.288 (frame 380): Aufrüst – frei, nicht grundst., count 0x0000",
+        "186.852 (frame 423): belegt, nicht grundst., axle count 0x0000 (INVALID)",
+        "186.954 (frame 425): gestört, nicht grundst., count 0x0000  (Δ = 102 ms)",
+        "Reference (TC1, frame 132, 64.546): belegt with axle count 0x0001 = valid 1 axle in.",
+        "State stayed 3 (gestört) until timeout 300.288; BLF Panel_ZE.trackState 2 -> 3 at same times."
+      ],
+      "root_cause": "The occupation in TC3 was not a valid counted axle (fill level 0x0000 instead of 1). The axle counter judged the wheel-sensor signal as implausible and declared the section disturbed. The test script waits only for the target state and has no handling for state 3, so it ran into the 120 s timeout.",
+      "potential_reasons": [
+        "Metal object placed on/removed from only one sensor system or in wrong order (no direction detectable)",
+        "Object moved too fast/too slow, partial influence of the sensor",
+        "Wheel sensor fault / adjustment, EMI",
+        "Manual stimulation not reproducible ('Räder ein=0, aus=0')"
+      ],
+      "recommendation": "Use a defined, documented stimulation procedure (or a wheel-sensor simulator). Let the script fail fast (< 1 s) when Belegung=3 is reported during preparation, with a clear message 'Section disturbed – invalid stimulation'.",
+      "method": "1) Read PDF failure text + time 300.288. 2) Filtered the pcap for 'Meldung GFM-A Belegungszustand' in the TC3 window with the DB Lua dissector (BL5). 3) Compared byte 43/44/45-46 of frames 423/425 with the valid occupation in TC1 (frame 132). 4) Cross-checked with write-log lines 186.850940/186.953050 and BLF Panel_ZE.trackState."
+    },
+    {
+      "id": "S02",
+      "title": "Precondition 'belegt & nicht grundstellbar stable for 20 s' conflicts with OC behaviour (grundstellbar set automatically after ~11-12 s)",
+      "category": "Test design / timing",
+      "test_cases": [
+        "TC_NPRO.295.02288.01"
+      ],
+      "test_case_scope": "02288.01",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "pdf",
+          "label": "PDF"
+        },
+        {
+          "type": "blf",
+          "label": "BLF"
+        }
+      ],
+      "severity": "High",
+      "confidence": "Medium",
+      "symptom": "TC3 preparation requires 20 s of stable 'Belegung=2, Grundstellbarkeit=0' before continuing.",
+      "evidence": [
+        "186.954 gestört, nicht grundst. -> 198.871 (frame 504) gestört, GRUNDST. (Δ 11.9 s) with NO command sent by CANoe in between (only heartbeats in pcap, no kommando* sysvar in BLF).",
+        "TC1: 64.546 belegt, nicht grundst. -> 75.756 belegt, grundst. (Δ 11.2 s)."
+      ],
+      "root_cause": "The OC changed Grundstellungsfähigkeit to 'grundstellbar' on its own ~12 s after a state change. If this also happens for 'belegt', the 20 s stability criterion can never be fulfilled, i.e. TC3 can fail even with perfect stimulation.",
+      "potential_reasons": [
+        "OC-internal settling/supervision timer before reset is allowed (project parameter)",
+        "Requirement written for simulated OC, not real BL5 OC",
+        "Only 2 observations – could also be operator action"
+      ],
+      "recommendation": "Confirm with a controlled experiment: occupy, send nothing, log 3.4.11 for 60 s. If confirmed, reduce stability window to < 10 s or start step 1 immediately after 'belegt, nicht grundst.' is reported.",
+      "method": "Built a correlated event list (pcap data telegrams + BLF command sysvars) and measured time deltas between consecutive 3.4.11 telegrams; checked that no CANoe data telegram/command exists in the interval 186.954-198.871."
+    },
+    {
+      "id": "S03",
+      "title": "Response time requirement t − t1 < 500 ms vs observed 11.2 s for AZGH -> 'grundstellbar'",
+      "category": "Timing / requirement",
+      "test_cases": [
+        "TC_NPRO.295.02288.01"
+      ],
+      "test_case_scope": "02288.01 (affects 00525 cleanup as well)",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "test_spec",
+          "label": "test spec"
+        },
+        {
+          "type": "pdf",
+          "label": "PDF"
+        }
+      ],
+      "severity": "High",
+      "confidence": "Medium",
+      "symptom": "TC3 step 2 never reached, but spec demands Md_GFM_A_Belegungszustand within 500 ms after Kd_AZGH.",
+      "evidence": [
+        "Same situation already happened as preparation in TC1: AZGH frame 133 at 64.549 (wire) in state 'belegt, nicht grundst.' -> answer frame 207 'belegt, grundst.' at 75.756 = 11.207 s.",
+        "OC reacts on its 300 ms cycle otherwise (AZG frame 267 -> answer frame 268 after 295 ms)."
+      ],
+      "root_cause": "Even if the precondition of TC3 is reached, step 2 would most probably FAIL on timing: the real OC needed 11.2 s, i.e. 22x the allowed 500 ms.",
+      "potential_reasons": [
+        "OC performs internal checks/delay before granting AZGH (or S02 timer)",
+        "Spec value 500 ms derived for simulated OC",
+        "Different baseline (spec BL 4.0 / BL6 coding vs OC BL5)"
+      ],
+      "recommendation": "Clarify the timing requirement with the OC supplier / Lastenheft BL5; parameterise the test window; re-run TC3 with a 15 s window as diagnostic run.",
+      "method": "Searched the whole capture for an occurrence of the TC3 stimulus (AZGH in 'belegt, nicht grundst.') and found it in TC1 preparation; measured request -> response delta using frame times and RaSTA timestamps."
+    },
+    {
+      "id": "S04",
+      "title": "Baseline / encoding mismatch between test spec (BL6+) and real OC (BL5) for telegram 3.4.11",
+      "category": "Configuration / protocol version",
+      "test_cases": [
+        "TC_NPRO.295.02288.01"
+      ],
+      "test_case_scope": "02288.01, all 3.4.11 checks",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "test_spec",
+          "label": "Test spec"
+        },
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "lua_dissector",
+          "label": "Lua dissectors"
+        },
+        {
+          "type": "telegram_xlsx",
+          "label": "telegram xlsx"
+        }
+      ],
+      "severity": "High",
+      "confidence": "High",
+      "symptom": "Spec step 2 expects BTP[43]=0x02, BTP[44]=0x02, BTP[45..46]=0xFFFF, BTP[47]=0xFF.",
+      "evidence": [
+        "Real OC telegram frame 207: length 47 bytes (index 0..46), BTP[43]=0x02, BTP[44]=0x01, BTP[45..46]=0x0001.",
+        "Telegram xlsx: 'Real OC is based on BL 5'. Dissector notes: Grundstellbarkeit 1=grundstellbar (BL5) vs 2=grundstellbar (BL6); BTP[47] (power supply) exists only from BL6."
+      ],
+      "root_cause": "A byte-exact check per spec would fail on 3 fields + length although the OC behaves correctly for BL5. Also an analysis with the BL6 dissector shows 0x01 as 'nicht grundstellungsfähig' -> wrong conclusion.",
+      "potential_reasons": [
+        "Spec from 'LH NeuPro.295 BL 4.0' / BL6 coding not adapted to BL5 OC",
+        "Test data mapping in CANoe (Grundstellbarkeit 0/1) differs from spec (1/2)"
+      ],
+      "recommendation": "Maintain a baseline mapping table per SUT; select the dissector baseline explicitly (SCI preference TDS=5); adapt expected values of 02288 step 2 for BL5 (0x01, real count, no byte 47).",
+      "method": "Compared the expected [PARAMETERS] of the spec txt with the raw application data of 3.4.11 frames; diffed SCI-TDS_BL5.lua vs SCI-TDS_BL6.lua; read developer notes in the telegram xlsx."
+    },
+    {
+      "id": "S05",
+      "title": "Cascading failure: TC4 started in the disturbed state left by TC3",
+      "category": "Test isolation / sequencing",
+      "test_cases": [
+        "TC_NPRO.295.00525.01"
+      ],
+      "test_case_scope": "00525.01",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pdf",
+          "label": "PDF"
+        },
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "blf",
+          "label": "BLF"
+        }
+      ],
+      "severity": "High",
+      "confidence": "High",
+      "symptom": "TC4 FAIL at 474.303: 'Zeitlimit 120000 ms für manuelle Vorbereitung abgelaufen: Belegungszustand=3, Grundstellungsfähigkeit=0'.",
+      "evidence": [
+        "313.289 TC3 cleanup: 'Cleanup fehlgeschlagen; definierter Ausgangszustand ... nicht garantiert'.",
+        "354.303 (frame 1276) Aufrüst status at TC4 start: gestört, nicht grundst.",
+        "No 3.4.11 at all between 354.303 and 474.303 (state never changed)."
+      ],
+      "root_cause": "TC4 required 'frei & nicht grundstellbar'. A disturbed GFM-A cannot be cleared by driving the object through ('freifahren'); it needs grundstellbar + AZG/AZGH. The test continued although the previous cleanup reported an undefined state.",
+      "potential_reasons": [
+        "No gate between test cases (continue despite failed cleanup)",
+        "No automatic recovery procedure",
+        "Operator instruction does not fit state 'gestört'"
+      ],
+      "recommendation": "Make a successful cleanup a precondition for the next test case (skip/block with reason); add a recovery routine (see S06).",
+      "method": "Followed the state chain across test-case boundaries: last 3.4.11 of TC3 -> cleanup result in PDF -> Aufrüst status at next connection (each BTP connect delivers the current state = free state check)."
+    },
+    {
+      "id": "S06",
+      "title": "Cleanup routine cannot succeed: AZGH sent while not grundstellbar, timeout 6.5 s shorter than OC reaction",
+      "category": "Test script logic",
+      "test_cases": [
+        "TC_NPRO.295.02288.01",
+        "TC_NPRO.295.00525.01"
+      ],
+      "test_case_scope": "02288.01, 00525.01",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pdf",
+          "label": "PDF"
+        },
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "blf",
+          "label": "BLF"
+        }
+      ],
+      "severity": "Medium",
+      "confidence": "High",
+      "symptom": "Cleanup FAIL in TC3 (313.289) and TC4 (487.304): 'Cleanup-Ziel nach 6500 ms nicht erreicht ... Zustand=3, Grundstellbarkeit=0'.",
+      "evidence": [
+        "AZGH frame 1222 at 306.791 and frame 2117 at 480.805, both in state 'gestört, nicht grundst.' -> no reply at all.",
+        "Wait time 6500 ms; observed OC time to 'grundstellbar' ≈ 11-12 s (S02/S03)."
+      ],
+      "root_cause": "The cleanup always sends one AZGH and waits 6.5 s, regardless of the current Grundstellbarkeit. In 'nicht grundstellbar' the OC discards the command (as tested in 02284), so the cleanup is logically guaranteed to fail.",
+      "potential_reasons": [
+        "Cleanup not state-aware",
+        "Timeout not aligned with real-OC timing"
+      ],
+      "recommendation": "Implement state-based cleanup: if gestört/belegt and not grundstellbar -> wait (≥ 15 s) for grundstellbar -> AZG(AZEG) or AZGH -> verify 'frei'; otherwise stop with 'manual intervention needed'.",
+      "method": "Matched PDF cleanup steps to pcap command frames using RaSTA timestamp = CANoe µs; checked OC responses in the following 6.5 s."
+    },
+    {
+      "id": "S07",
+      "title": "Missed recovery window: GFM-A was 'grundstellbar' for ~50 s during TC3 and nobody used it",
+      "category": "Test script logic / SUT behaviour",
+      "test_cases": [
+        "TC_NPRO.295.02288.01"
+      ],
+      "test_case_scope": "02288.01",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "write_log",
+          "label": "write log"
+        }
+      ],
+      "severity": "Medium",
+      "confidence": "Medium",
+      "symptom": "No message in the report – only visible in traces.",
+      "evidence": [
+        "198.871 (frame 504): gestört, grundst. -> 248.863 (frame 837): gestört, NICHT grundst. (window 49.99 s). No AZG/AZGH sent in this window (preparation forbids panel commands)."
+      ],
+      "root_cause": "An AZG(AZEG) in this window would have restored a defined state. Afterwards the OC withdrew Grundstellbarkeit, leading to the failed cleanup and the TC4 cascade.",
+      "potential_reasons": [
+        "OC time limit for Grundstellbarkeit (~50 s)",
+        "New disturbance by object still on the sensor"
+      ],
+      "recommendation": "During preparation, react to 'grundstellbar' when state=3: automatic AZG or operator prompt; log the event in the report.",
+      "method": "Listed all 3.4.11 state transitions with durations per state (state-machine view of the GFM-A)."
+    },
+    {
+      "id": "S08",
+      "title": "Undocumented manual panel commands (AZGH + AZG) during automated preparation of TC4",
+      "category": "Operator / process",
+      "test_cases": [
+        "TC_NPRO.295.00525.01"
+      ],
+      "test_case_scope": "00525.01",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "blf",
+          "label": "BLF (system variables)"
+        },
+        {
+          "type": "pcap",
+          "label": "pcap"
+        }
+      ],
+      "severity": "Medium",
+      "confidence": "High",
+      "symptom": "Not visible in the PDF report at all. Report instruction: 'Kein AZG/AZGH am Panel senden'.",
+      "evidence": [
+        "BLF: Panel::Panel_ZE.kdSelection = 3 (AZGH) at 381.611, = 1 (AZG) at 391.386, panelTextOutput + lastCommandStatus.",
+        "pcap: frame 1458 Kommando AZGH at 381.613, frame 1523 Kommando AZG [AZEG] at 391.389. No reply from OC for either."
+      ],
+      "root_cause": "The tester tried to recover the disturbed GFM-A manually while the test was running. Both commands were discarded (not grundstellbar). This breaks traceability – the report does not show that additional stimuli reached the SUT.",
+      "potential_reasons": [
+        "Operator unaware that commands are rejected in this state",
+        "Panel not locked during test execution"
+      ],
+      "recommendation": "Lock the ZE panel while a test case is active or write every panel action into the test report; train operators on state-dependent recovery.",
+      "method": "Decoded BLF system-variable objects (type 130) and searched for Panel::* changes; correlated with unexpected command frames in pcap that have no matching test step in the PDF."
+    },
+    {
+      "id": "S09",
+      "title": "Discarded commands are completely silent – no 'Meldung Kommando abgewiesen' (0x0006) in the whole run",
+      "category": "Protocol / specification ambiguity",
+      "test_cases": [
+        "TC_NPRO.295.02283.01",
+        "TC_NPRO.295.02284.01"
+      ],
+      "test_case_scope": "02283.01, 02284.01 (all)",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "telegram_xlsx",
+          "label": "telegram xlsx"
+        }
+      ],
+      "severity": "Medium",
+      "confidence": "High",
+      "symptom": "TC1/TC2 PASS because nothing is received; no check on 0x0006.",
+      "evidence": [
+        "6 discarded commands: 77.549 (TC1), 132.318 (TC2), 306.791, 381.613, 391.389, 480.805. Message type 0x0006 count in capture = 0.",
+        "Telegram xlsx 'Use cases' #4: AZGH in 'frei & nicht rücksetzbar' -> MeldungKommandoAbgewiesen 'logically not allowed' = PASSED."
+      ],
+      "root_cause": "Observed behaviour contradicts the team's own use-case documentation. Either the OC configuration/software changed, or the use-case document is wrong. A missing negative acknowledgement makes it impossible for ESTW-ZE to distinguish 'discarded' from 'lost'.",
+      "potential_reasons": [
+        "Different OC software / configuration than in earlier use-case test",
+        "Rejection only for specific reasons in BL5",
+        "Use-case doc not reviewed against Lastenheft"
+      ],
+      "recommendation": "Clarify with requirement owner whether 0x0006 is required; add an explicit expectation (present or absent) to 02283/02284/00525.",
+      "method": "Counted all SCI message types in the capture (tshark field statistics) and compared with the telegram list 3.4.6-3.4.16 and the use-case sheet."
+    },
+    {
+      "id": "S10",
+      "title": "False-pass check: the 'NOT received' window of 500 ms is short compared to OC reaction times",
+      "category": "Verdict validation",
+      "test_cases": [
+        "TC_NPRO.295.02283.01",
+        "TC_NPRO.295.02284.01"
+      ],
+      "test_case_scope": "02283.01, 02284.01",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "pdf",
+          "label": "PDF"
+        }
+      ],
+      "severity": "Low",
+      "confidence": "High",
+      "symptom": "Step 2 'NOT (Md_GFM_A_Belegungszustand), t − t1 < 500 ms' PASS in TC1 and TC2; background check 'No Value Change' shows 'Number of samples 0'.",
+      "evidence": [
+        "After AZGH 77.549 no OC data telegram until 84.845 (= reply to the cleanup AZG) -> silent 7.0 s.",
+        "After AZGH 132.318 no OC data telegram until disconnect 139.317 -> silent 7.0 s."
+      ],
+      "root_cause": "The PASS verdicts are valid (OC stayed silent much longer than 500 ms). But the method is weak: the OC needs up to ~11 s for some reactions (S03), so a late wrong reaction would not be caught. 'Number of samples 0' means the background check never sampled anything.",
+      "potential_reasons": [
+        "500 ms window taken from spec without considering real OC timing",
+        "Background check not bound to a signal"
+      ],
+      "recommendation": "Extend the observation window (e.g. until the next test action, ≥ 10 s) and bind the background check to meldungGFMABelegungszustand.",
+      "method": "Re-verified PASS verdicts independently from the trace: searched the pcap for any OC data telegram after the AZGH until the next CANoe action."
+    },
+    {
+      "id": "S11",
+      "title": "Test-environment mismatch: test framework designed for simulated OC, executed against real OC with manual stimulation",
+      "category": "Test environment / configuration",
+      "test_cases": [
+        "TC_NPRO.295.02288.01",
+        "TC_NPRO.295.00525.01"
+      ],
+      "test_case_scope": "All (esp. 02288.01, 00525.01)",
+      "applies_to_all_test_cases": true,
+      "data_sources": [
+        {
+          "type": "pdf",
+          "label": "PDF"
+        },
+        {
+          "type": "blf",
+          "label": "BLF metadata"
+        },
+        {
+          "type": "pcap",
+          "label": "pcap"
+        }
+      ],
+      "severity": "Medium",
+      "confidence": "High",
+      "symptom": "Report preamble: 'Tests will be executed using BTP as a control mechanism. This will only work correctly if the object controller is simulated by CANoe.'",
+      "evidence": [
+        "Configuration path ...\\STIMULATE_REAL_OC\\ZE_RealOC_Stimulation.cfg; OC at 10.129.15.2 behind a routed gateway (Fortinet MAC); OC RaSTA timestamp ≈ 756 374 s uptime (8.75 days -> real device, no restart).",
+        "TC 00525 step 1 interface = AZ6 'local operation by LST operator', not BTP."
+      ],
+      "root_cause": "All preconditions need physical manipulation with a metal object and 120 s operator timeouts -> non-deterministic results. 00525 even specifies a local operation on AZ6 that the BTP automation cannot perform as written.",
+      "potential_reasons": [
+        "Test cases ported from simulation to real OC without adaptation",
+        "Missing hardware stimulation (wheel-sensor simulator)"
+      ],
+      "recommendation": "Separate test suites for simulated vs real OC; for real OC provide a hardware stimulator or documented manual procedure; review 00525 interface (AZ6 local operation).",
+      "method": "Read report header + configuration metadata (PDF and BLF XML app-text), checked endpoint addresses/uptime in RaSTA headers, compared test-spec INTERFACE column with what the automation sends."
+    },
+    {
+      "id": "S12",
+      "title": "TC5 inconclusive – manual stop of the test unit",
+      "category": "Operator / process",
+      "test_cases": [
+        "TC_NPRO.295.00522.01"
+      ],
+      "test_case_scope": "00522.01",
+      "applies_to_all_test_cases": false,
+      "data_sources": [
+        {
+          "type": "pdf",
+          "label": "PDF"
+        },
+        {
+          "type": "write_log",
+          "label": "write log"
+        },
+        {
+          "type": "blf",
+          "label": "BLF"
+        }
+      ],
+      "severity": "Low",
+      "confidence": "High",
+      "symptom": "'Test execution aborted due to stop of the test unit. Test is incomplete!' at 488.322; write log: '[Help 09-0013] Execution stop forced'.",
+      "evidence": [
+        "TC5 started 487.504, stop at 488.322 (during the 40 s wait before BTP connect). No traffic after 487.314 (pcap end). BLF test-structure events confirm."
+      ],
+      "root_cause": "Not a SUT failure. The tester stopped the run because the GFM-A was in an undefined state (consequence of S05/S06). No evidence for 00522 exists in this run (no test-spec extract provided either).",
+      "potential_reasons": [
+        "Expected follow-up failure, tester saved time"
+      ],
+      "recommendation": "Let the framework block remaining test cases automatically with the reason 'no defined start state' instead of manual stop; re-run 00522 separately.",
+      "method": "Read final pages of the PDF, the last lines of the write log and BLF test-structure objects (type 118); checked pcap end time."
+    },
+    {
+      "id": "S13",
+      "title": "Communication layer ruled out: RaSTA/BTP link healthy for the whole run",
+      "category": "Network / protocol (negative finding)",
+      "test_cases": [],
+      "test_case_scope": "All",
+      "applies_to_all_test_cases": true,
+      "data_sources": [
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "pdf",
+          "label": "PDF"
+        }
+      ],
+      "severity": "Info",
+      "confidence": "High",
+      "symptom": "Connection steps PASS: 730.8 / 765.9 / 772.5 / 813.8 ms (limit 6500 ms).",
+      "evidence": [
+        "5 RaSTA sessions, BTP version handshake 'Versionswerte gleich' (v01) each time; heartbeats every 300 ms (max gap 306 ms) in both directions; no sequence-number gaps or duplicates inside sessions; strict time order OK; all disconnects 'User Request' by CANoe at planned times.",
+        "3 ICMP 'port unreachable' (frames 314, 1267, 2162) come from CANoe ~160 ms after its own disconnect -> one OC heartbeat still in flight = benign."
+      ],
+      "root_cause": "No telegram loss, timeout or connection interruption. Failures are in SUT state / test logic, not in communication. ICMP messages must not be misread as network errors.",
+      "potential_reasons": [],
+      "recommendation": "Keep this as a standard first check in every analysis (filter out 'noise' like post-disconnect ICMP).",
+      "method": "Wireshark statistics (Conversations, Protocol Hierarchy), Lua dissector fields rasta.seq / rasta.type, Python script for heartbeat interval and sequence continuity per direction and session."
+    },
+    {
+      "id": "S14",
+      "title": "Multi-source time correlation and data-source integrity",
+      "category": "Analysis method / data quality",
+      "test_cases": [],
+      "test_case_scope": "All",
+      "applies_to_all_test_cases": true,
+      "data_sources": [
+        {
+          "type": "pdf",
+          "label": "PDF"
+        },
+        {
+          "type": "write_log",
+          "label": "write log"
+        },
+        {
+          "type": "blf",
+          "label": "BLF"
+        },
+        {
+          "type": "pcap",
+          "label": "pcap"
+        }
+      ],
+      "severity": "Info",
+      "confidence": "High",
+      "symptom": "Report, write log and BLF use CANoe measurement time; pcap uses absolute time – direct comparison is not possible.",
+      "evidence": [
+        "Measurement start 12:23:59.953; first pcap frame 12:24:03.416071 = CANoe 3.462272 s.",
+        "All 2159 Ethernet frames in the BLF match the pcap within 0.5 µs -> both files are the same recording.",
+        "RaSTA timestamp of CANoe-sent frames = CANoe time in µs; OC timestamps = OC uptime in ms.",
+        "Pitfall: a first BLF parser with wrong object padding read only 1083 of 2159 frames and suggested 50 % data loss – fixed after checking against the BLF header object count (11 095)."
+      ],
+      "root_cause": "With the offset every PDF step can be mapped to the exact frame. The BLF adds information the pcap does not have (panel actions, decoded state variables, test-case start/stop).",
+      "potential_reasons": [],
+      "recommendation": "Always validate a parser against file header counts; document the offset in every analysis report.",
+      "method": "Compared timestamps of identical events in all sources (e.g. 3.4.11 at write-log 4.253420 vs frame 16), then verified the offset frame-by-frame between BLF and pcap."
+    },
+    {
+      "id": "S15",
+      "title": "Misleading interpretation texts in CANoe model log for axle count 0x0000",
+      "category": "Tooling / log interpretation",
+      "test_cases": [],
+      "test_case_scope": "All",
+      "applies_to_all_test_cases": true,
+      "data_sources": [
+        {
+          "type": "write_log",
+          "label": "write log"
+        },
+        {
+          "type": "pcap",
+          "label": "pcap"
+        },
+        {
+          "type": "lua_dissector",
+          "label": "Lua dissector"
+        }
+      ],
+      "severity": "Low",
+      "confidence": "High",
+      "symptom": "Write log prints 'Achszaehlfuellstand: 0x0000 -> INVALID (GFM-A is malfunctioning or after the restart...)' for every 3.4.11, also for normal 'frei'.",
+      "evidence": [
+        "84.845 (frame 268) after successful AZG: frei, nicht grundst., count 0x0000 -> log says 'malfunctioning'. OC uptime 8.75 days -> no restart.",
+        "Value 0x0000 is the BL5 coding for 'gestört / after restart' but the OC also sends it in 'frei'."
+      ],
+      "root_cause": "An analyst reading only the write log could wrongly conclude the GFM-A was faulty or restarted during the whole run. The real indicator is Belegungszustand (byte 43), not the fill level.",
+      "potential_reasons": [
+        "Model log maps value -> text without considering Belegungszustand",
+        "BL5 semantics of 0x0000 ambiguous"
+      ],
+      "recommendation": "Adapt the model log text ('0x0000 – not available / disturbed') and print it together with Belegungszustand.",
+      "method": "Cross-checked each write-log line with the decoded telegram and with the RaSTA timestamps (OC uptime)."
+    }
+  ],
+  "timeline": [
+    {
+      "canoe_time_s": 3.463,
+      "wall_clock": "12:24:03.416",
+      "pcap_frame": 8,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Connection Request , Version: 0303",
+      "phase": "Pre-test (manual panel connect)",
+      "test_case_id": null,
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 3.646,
+      "wall_clock": "12:24:03.600",
+      "pcap_frame": 9,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "RaSTA Connection Response , Version: 0303",
+      "phase": "Pre-test (manual panel connect)",
+      "test_case_id": null,
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 3.648,
+      "wall_clock": "12:24:03.601",
+      "pcap_frame": 11,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'BTP_Versionsabgleich'(0x0024) [BTP-Version: 01]",
+      "phase": "Pre-test (manual panel connect)",
+      "test_case_id": null,
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 3.95,
+      "wall_clock": "12:24:03.903",
+      "pcap_frame": 13,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'BTP_Versionsabgleich'(0x0025) [BTP-Version: 01] [Ergebnis: BTP-Versionswerte gleich]",
+      "phase": "Pre-test (manual panel connect)",
+      "test_case_id": null,
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 3.951,
+      "wall_clock": "12:24:03.905",
+      "pcap_frame": 14,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'Aufrüstanforderung'(0x0021)",
+      "phase": "Pre-test (manual panel connect)",
+      "test_case_id": null,
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 4.253,
+      "wall_clock": "12:24:04.207",
+      "pcap_frame": 16,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'Aufrüstbeginn'(0x0022), Meldung GFM-A Belegungszustand(0x0007) [frei, nicht grundst.], Meldung 'Aufrüstende'(0x0023)",
+      "phase": "Pre-test (manual panel connect)",
+      "test_case_id": null,
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 8.511,
+      "wall_clock": "12:24:08.465",
+      "pcap_frame": 45,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Disconnect Request : User Request",
+      "phase": "Pre-test (manual panel connect)",
+      "test_case_id": null,
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 11.402,
+      "wall_clock": "12:24:11.355",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "Test configuration 'TDS-Test' started (BLF/PDF)",
+      "phase": "Test fixture init",
+      "test_case_id": null,
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 12.402,
+      "wall_clock": "12:24:12.355",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC1 started",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 52.404,
+      "wall_clock": "12:24:52.357",
+      "pcap_frame": 48,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Connection Request , Version: 0303",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 52.527,
+      "wall_clock": "12:24:52.480",
+      "pcap_frame": 49,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "RaSTA Connection Response , Version: 0303",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 52.53,
+      "wall_clock": "12:24:52.483",
+      "pcap_frame": 51,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'BTP_Versionsabgleich'(0x0024) [BTP-Version: 01]",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 52.831,
+      "wall_clock": "12:24:52.784",
+      "pcap_frame": 53,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'BTP_Versionsabgleich'(0x0025) [BTP-Version: 01] [Ergebnis: BTP-Versionswerte gleich]",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 52.832,
+      "wall_clock": "12:24:52.785",
+      "pcap_frame": 54,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'Aufrüstanforderung'(0x0021)",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 53.133,
+      "wall_clock": "12:24:53.086",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC1: operator asked to occupy GFM-A (target Belegung=2, GS=1)",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 53.133,
+      "wall_clock": "12:24:53.086",
+      "pcap_frame": 56,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'Aufrüstbeginn'(0x0022), Meldung GFM-A Belegungszustand(0x0007) [frei, nicht grundst.], Meldung 'Aufrüstende'(0x0023)",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 64.545,
+      "wall_clock": "12:25:04.498",
+      "pcap_frame": 132,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung GFM-A Belegungszustand(0x0007) [belegt, nicht grundst.]",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 64.549,
+      "wall_clock": "12:25:04.502",
+      "pcap_frame": 133,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando AZGH(0x0003)",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 75.755,
+      "wall_clock": "12:25:15.709",
+      "pcap_frame": 207,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung GFM-A Belegungszustand(0x0007) [belegt, grundst.]",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": "11.2 s after AZGH – S03",
+      "scenario_ids": [
+        "S03"
+      ]
+    },
+    {
+      "canoe_time_s": 77.546,
+      "wall_clock": "12:25:17.499",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC1 step 1 Kd_AZGH sent",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 77.548,
+      "wall_clock": "12:25:17.502",
+      "pcap_frame": 219,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando AZGH(0x0003)",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": "TC1 step 1 – discarded, no 0x0006 – S09",
+      "scenario_ids": [
+        "S09"
+      ]
+    },
+    {
+      "canoe_time_s": 78.047,
+      "wall_clock": "12:25:18.000",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC1 step 2 PASS (0 telegrams in 500 ms)",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 84.549,
+      "wall_clock": "12:25:24.503",
+      "pcap_frame": 267,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando AZG(0x0001) [AZEG]",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 84.845,
+      "wall_clock": "12:25:24.798",
+      "pcap_frame": 268,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung GFM-A Belegungszustand(0x0007) [frei, nicht grundst.]",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": "295 ms after AZG (normal OC cycle)",
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 91.35,
+      "wall_clock": "12:25:31.303",
+      "pcap_frame": 312,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Disconnect Request : User Request",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 91.511,
+      "wall_clock": "12:25:31.465",
+      "pcap_frame": 314,
+      "source": "pcap",
+      "direction": "ZE host -> OC",
+      "event": "Destination unreachable (Port unreachable)",
+      "phase": "TC1 02283.01",
+      "test_case_id": "TC_NPRO.295.02283.01",
+      "comment": "benign, OC heartbeat after disconnect – S13",
+      "scenario_ids": [
+        "S13"
+      ]
+    },
+    {
+      "canoe_time_s": 91.548,
+      "wall_clock": "12:25:31.501",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC1 PASS",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 131.549,
+      "wall_clock": "12:26:11.503",
+      "pcap_frame": 315,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Connection Request , Version: 0303",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 131.707,
+      "wall_clock": "12:26:11.661",
+      "pcap_frame": 316,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "RaSTA Connection Response , Version: 0303",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 131.709,
+      "wall_clock": "12:26:11.663",
+      "pcap_frame": 318,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'BTP_Versionsabgleich'(0x0024) [BTP-Version: 01]",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 132.011,
+      "wall_clock": "12:26:11.965",
+      "pcap_frame": 320,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'BTP_Versionsabgleich'(0x0025) [BTP-Version: 01] [Ergebnis: BTP-Versionswerte gleich]",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 132.012,
+      "wall_clock": "12:26:11.965",
+      "pcap_frame": 321,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'Aufrüstanforderung'(0x0021)",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 132.314,
+      "wall_clock": "12:26:12.267",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC2 preparation OK (frei, nicht grundst.)",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 132.314,
+      "wall_clock": "12:26:12.267",
+      "pcap_frame": 323,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'Aufrüstbeginn'(0x0022), Meldung GFM-A Belegungszustand(0x0007) [frei, nicht grundst.], Meldung 'Aufrüstende'(0x0023)",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 132.317,
+      "wall_clock": "12:26:12.271",
+      "pcap_frame": 324,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando AZGH(0x0003)",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": "TC2 step 1 – discarded, no 0x0006 – S09",
+      "scenario_ids": [
+        "S09"
+      ]
+    },
+    {
+      "canoe_time_s": 132.815,
+      "wall_clock": "12:26:12.768",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC2 step 2 PASS",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 139.317,
+      "wall_clock": "12:26:19.270",
+      "pcap_frame": 371,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Disconnect Request : User Request",
+      "phase": "TC2 02284.01",
+      "test_case_id": "TC_NPRO.295.02284.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 139.515,
+      "wall_clock": "12:26:19.468",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC2 PASS",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 179.517,
+      "wall_clock": "12:26:59.470",
+      "pcap_frame": 372,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Connection Request , Version: 0303",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 179.68,
+      "wall_clock": "12:26:59.633",
+      "pcap_frame": 373,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "RaSTA Connection Response , Version: 0303",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 179.681,
+      "wall_clock": "12:26:59.634",
+      "pcap_frame": 375,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'BTP_Versionsabgleich'(0x0024) [BTP-Version: 01]",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 179.984,
+      "wall_clock": "12:26:59.937",
+      "pcap_frame": 377,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'BTP_Versionsabgleich'(0x0025) [BTP-Version: 01] [Ergebnis: BTP-Versionswerte gleich]",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 179.985,
+      "wall_clock": "12:26:59.938",
+      "pcap_frame": 378,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'Aufrüstanforderung'(0x0021)",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 180.287,
+      "wall_clock": "12:27:00.240",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC3: operator asked to free then occupy GFM-A; 20 s stable required",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 180.287,
+      "wall_clock": "12:27:00.241",
+      "pcap_frame": 380,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'Aufrüstbeginn'(0x0022), Meldung GFM-A Belegungszustand(0x0007) [frei, nicht grundst.], Meldung 'Aufrüstende'(0x0023)",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 186.851,
+      "wall_clock": "12:27:06.804",
+      "pcap_frame": 423,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung GFM-A Belegungszustand(0x0007) [belegt, nicht grundst.]",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "belegt with axle count 0x0000 (invalid) – S01",
+      "scenario_ids": [
+        "S01"
+      ]
+    },
+    {
+      "canoe_time_s": 186.953,
+      "wall_clock": "12:27:06.906",
+      "pcap_frame": 425,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung GFM-A Belegungszustand(0x0007) [gestört, nicht grundst.]",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "102 ms later: gestört – S01",
+      "scenario_ids": [
+        "S01"
+      ]
+    },
+    {
+      "canoe_time_s": 198.87,
+      "wall_clock": "12:27:18.823",
+      "pcap_frame": 504,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung GFM-A Belegungszustand(0x0007) [gestört, grundst.]",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "grundstellbar without any command – S02/S07",
+      "scenario_ids": [
+        "S02",
+        "S07"
+      ]
+    },
+    {
+      "canoe_time_s": 248.862,
+      "wall_clock": "12:28:08.815",
+      "pcap_frame": 837,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung GFM-A Belegungszustand(0x0007) [gestört, nicht grundst.]",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "grundstellbarkeit withdrawn after 50 s – S07",
+      "scenario_ids": [
+        "S07"
+      ]
+    },
+    {
+      "canoe_time_s": 300.288,
+      "wall_clock": "12:29:00.241",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC3 preparation FAIL (120 s timeout) – BreakOnFail",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "S01, S02",
+      "scenario_ids": [
+        "S01",
+        "S02"
+      ]
+    },
+    {
+      "canoe_time_s": 306.788,
+      "wall_clock": "12:29:06.741",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC3 cleanup: AZGH sent",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "S06",
+      "scenario_ids": [
+        "S06"
+      ]
+    },
+    {
+      "canoe_time_s": 306.79,
+      "wall_clock": "12:29:06.743",
+      "pcap_frame": 1222,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando AZGH(0x0003)",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "cleanup AZGH while not grundstellbar – S06",
+      "scenario_ids": [
+        "S06"
+      ]
+    },
+    {
+      "canoe_time_s": 313.289,
+      "wall_clock": "12:29:13.242",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC3 cleanup FAIL – no defined start state",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "S05, S06",
+      "scenario_ids": [
+        "S05",
+        "S06"
+      ]
+    },
+    {
+      "canoe_time_s": 313.29,
+      "wall_clock": "12:29:13.243",
+      "pcap_frame": 1265,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Disconnect Request : User Request",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 313.398,
+      "wall_clock": "12:29:13.351",
+      "pcap_frame": 1267,
+      "source": "pcap",
+      "direction": "ZE host -> OC",
+      "event": "Destination unreachable (Port unreachable)",
+      "phase": "TC3 02288.01",
+      "test_case_id": "TC_NPRO.295.02288.01",
+      "comment": "benign – S13",
+      "scenario_ids": [
+        "S13"
+      ]
+    },
+    {
+      "canoe_time_s": 353.491,
+      "wall_clock": "12:29:53.444",
+      "pcap_frame": 1268,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Connection Request , Version: 0303",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 353.696,
+      "wall_clock": "12:29:53.649",
+      "pcap_frame": 1269,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "RaSTA Connection Response , Version: 0303",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 353.697,
+      "wall_clock": "12:29:53.650",
+      "pcap_frame": 1271,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'BTP_Versionsabgleich'(0x0024) [BTP-Version: 01]",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 353.999,
+      "wall_clock": "12:29:53.953",
+      "pcap_frame": 1273,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'BTP_Versionsabgleich'(0x0025) [BTP-Version: 01] [Ergebnis: BTP-Versionswerte gleich]",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 354.0,
+      "wall_clock": "12:29:53.954",
+      "pcap_frame": 1274,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando 'Aufrüstanforderung'(0x0021)",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 354.303,
+      "wall_clock": "12:29:54.256",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC4: operator asked to 'freifahren' (target frei, nicht grundst.)",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "S05",
+      "scenario_ids": [
+        "S05"
+      ]
+    },
+    {
+      "canoe_time_s": 354.303,
+      "wall_clock": "12:29:54.256",
+      "pcap_frame": 1276,
+      "source": "pcap",
+      "direction": "OC -> ZE",
+      "event": "Meldung 'Aufrüstbeginn'(0x0022), Meldung GFM-A Belegungszustand(0x0007) [gestört, nicht grundst.], Meldung 'Aufrüstende'(0x0023)",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "TC4 starts in disturbed state – S05",
+      "scenario_ids": [
+        "S05"
+      ]
+    },
+    {
+      "canoe_time_s": 381.611,
+      "wall_clock": "12:30:21.564",
+      "pcap_frame": null,
+      "source": "blf",
+      "direction": null,
+      "event": "Panel kdSelection=3 (AZGH) – manual panel command",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "S08",
+      "scenario_ids": [
+        "S08"
+      ]
+    },
+    {
+      "canoe_time_s": 381.613,
+      "wall_clock": "12:30:21.566",
+      "pcap_frame": 1458,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando AZGH(0x0003)",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "manual panel AZGH, no reply – S08",
+      "scenario_ids": [
+        "S08"
+      ]
+    },
+    {
+      "canoe_time_s": 391.386,
+      "wall_clock": "12:30:31.339",
+      "pcap_frame": null,
+      "source": "blf",
+      "direction": null,
+      "event": "Panel kdSelection=1 (AZG) – manual panel command",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "S08",
+      "scenario_ids": [
+        "S08"
+      ]
+    },
+    {
+      "canoe_time_s": 391.388,
+      "wall_clock": "12:30:31.341",
+      "pcap_frame": 1523,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando AZG(0x0001) [AZEG]",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "manual panel AZG, no reply – S08",
+      "scenario_ids": [
+        "S08"
+      ]
+    },
+    {
+      "canoe_time_s": 474.303,
+      "wall_clock": "12:31:54.256",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC4 preparation FAIL (120 s timeout, Belegung=3)",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "S05",
+      "scenario_ids": [
+        "S05"
+      ]
+    },
+    {
+      "canoe_time_s": 480.803,
+      "wall_clock": "12:32:00.756",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC4 cleanup: AZGH sent",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "S06",
+      "scenario_ids": [
+        "S06"
+      ]
+    },
+    {
+      "canoe_time_s": 480.805,
+      "wall_clock": "12:32:00.758",
+      "pcap_frame": 2117,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "Kommando AZGH(0x0003)",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "cleanup AZGH while not grundstellbar – S06",
+      "scenario_ids": [
+        "S06"
+      ]
+    },
+    {
+      "canoe_time_s": 487.304,
+      "wall_clock": "12:32:07.257",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC4 cleanup FAIL",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "S06",
+      "scenario_ids": [
+        "S06"
+      ]
+    },
+    {
+      "canoe_time_s": 487.305,
+      "wall_clock": "12:32:07.258",
+      "pcap_frame": 2160,
+      "source": "pcap",
+      "direction": "ZE -> OC",
+      "event": "RaSTA Disconnect Request : User Request",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 487.314,
+      "wall_clock": "12:32:07.267",
+      "pcap_frame": 2162,
+      "source": "pcap",
+      "direction": "ZE host -> OC",
+      "event": "Destination unreachable (Port unreachable)",
+      "phase": "TC4 00525.01",
+      "test_case_id": "TC_NPRO.295.00525.01",
+      "comment": "benign – S13",
+      "scenario_ids": [
+        "S13"
+      ]
+    },
+    {
+      "canoe_time_s": 487.504,
+      "wall_clock": "12:32:07.457",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "TC5 started",
+      "phase": "TC5 00522.01",
+      "test_case_id": "TC_NPRO.295.00522.01",
+      "comment": null,
+      "scenario_ids": []
+    },
+    {
+      "canoe_time_s": 488.322,
+      "wall_clock": "12:32:08.275",
+      "pcap_frame": null,
+      "source": "pdf",
+      "direction": null,
+      "event": "Test unit stopped manually – TC5 Inconclusive",
+      "phase": "TC5 00522.01",
+      "test_case_id": "TC_NPRO.295.00522.01",
+      "comment": "S12",
+      "scenario_ids": [
+        "S12"
+      ]
+    }
+  ],
+  "gfma_state_history": {
+    "section": "34W1",
+    "coding_note": "Coding per SCI-TDS Baseline 5 (real OC): Belegung 1=frei, 2=belegt, 3=gestört; Grundstellungsfähigkeit 0=nicht, 1=grundstellbar. Source: SCI-TDS_BL5.lua (LUA.zip) and SCI_TDS_Telegrams xlsx. Durations in column F are formulas.",
+    "states": [
+      {
+        "canoe_time_s": 4.254,
+        "pcap_frame": 16,
+        "occupancy_code": 1,
+        "occupancy": "frei",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "Pre-test (manual panel connect)",
+        "test_case_id": null,
+        "remark": "Aufrüst status, pre-test",
+        "until_s": 53.134,
+        "duration_s": 48.88
+      },
+      {
+        "canoe_time_s": 53.134,
+        "pcap_frame": 56,
+        "occupancy_code": 1,
+        "occupancy": "frei",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "TC1 02283.01",
+        "test_case_id": "TC_NPRO.295.02283.01",
+        "remark": "Aufrüst status",
+        "until_s": 64.546,
+        "duration_s": 11.412
+      },
+      {
+        "canoe_time_s": 64.546,
+        "pcap_frame": 132,
+        "occupancy_code": 2,
+        "occupancy": "belegt",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0001",
+        "duration_note": null,
+        "phase": "TC1 02283.01",
+        "test_case_id": "TC_NPRO.295.02283.01",
+        "remark": "valid manual occupation (1 axle)",
+        "until_s": 75.756,
+        "duration_s": 11.21
+      },
+      {
+        "canoe_time_s": 75.756,
+        "pcap_frame": 207,
+        "occupancy_code": 2,
+        "occupancy": "belegt",
+        "resettable_code": 1,
+        "resettable": "grundst.",
+        "axle_count": "0x0001",
+        "duration_note": null,
+        "phase": "TC1 02283.01",
+        "test_case_id": "TC_NPRO.295.02283.01",
+        "remark": "11.2 s after preparatory AZGH",
+        "until_s": 84.845,
+        "duration_s": 9.089
+      },
+      {
+        "canoe_time_s": 84.845,
+        "pcap_frame": 268,
+        "occupancy_code": 1,
+        "occupancy": "frei",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "TC1 02283.01",
+        "test_case_id": "TC_NPRO.295.02283.01",
+        "remark": "after cleanup AZG (AZEG), 295 ms",
+        "until_s": 132.315,
+        "duration_s": 47.47
+      },
+      {
+        "canoe_time_s": 132.315,
+        "pcap_frame": 323,
+        "occupancy_code": 1,
+        "occupancy": "frei",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "TC2 02284.01",
+        "test_case_id": "TC_NPRO.295.02284.01",
+        "remark": "Aufrüst status",
+        "until_s": 180.288,
+        "duration_s": 47.973
+      },
+      {
+        "canoe_time_s": 180.288,
+        "pcap_frame": 380,
+        "occupancy_code": 1,
+        "occupancy": "frei",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "TC3 02288.01",
+        "test_case_id": "TC_NPRO.295.02288.01",
+        "remark": "Aufrüst status",
+        "until_s": 186.852,
+        "duration_s": 6.564
+      },
+      {
+        "canoe_time_s": 186.852,
+        "pcap_frame": 423,
+        "occupancy_code": 2,
+        "occupancy": "belegt",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "TC3 02288.01",
+        "test_case_id": "TC_NPRO.295.02288.01",
+        "remark": "occupation WITHOUT valid axle count",
+        "until_s": 186.954,
+        "duration_s": 0.102
+      },
+      {
+        "canoe_time_s": 186.954,
+        "pcap_frame": 425,
+        "occupancy_code": 3,
+        "occupancy": "gestört",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "TC3 02288.01",
+        "test_case_id": "TC_NPRO.295.02288.01",
+        "remark": "disturbed after 102 ms",
+        "until_s": 198.871,
+        "duration_s": 11.917
+      },
+      {
+        "canoe_time_s": 198.871,
+        "pcap_frame": 504,
+        "occupancy_code": 3,
+        "occupancy": "gestört",
+        "resettable_code": 1,
+        "resettable": "grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "TC3 02288.01",
+        "test_case_id": "TC_NPRO.295.02288.01",
+        "remark": "no command sent before",
+        "until_s": 248.863,
+        "duration_s": 49.992
+      },
+      {
+        "canoe_time_s": 248.863,
+        "pcap_frame": 837,
+        "occupancy_code": 3,
+        "occupancy": "gestört",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": null,
+        "phase": "TC3 02288.01",
+        "test_case_id": "TC_NPRO.295.02288.01",
+        "remark": "grundstellbar withdrawn",
+        "until_s": 354.303,
+        "duration_s": 105.44
+      },
+      {
+        "canoe_time_s": 354.303,
+        "pcap_frame": 1276,
+        "occupancy_code": 3,
+        "occupancy": "gestört",
+        "resettable_code": 0,
+        "resettable": "nicht grundst.",
+        "axle_count": "0x0000",
+        "duration_note": "until end (487.3)",
+        "phase": "TC4 00525.01",
+        "test_case_id": "TC_NPRO.295.00525.01",
+        "remark": "Aufrüst status at TC4 start – unchanged until end",
+        "until_s": 487.3,
+        "duration_s": 132.997
+      }
+    ]
+  },
+  "method": {
+    "steps": [
+      {
+        "step": 1,
+        "activity": "Understand the expectation",
+        "details": "Read the 4 test-spec extracts (TC_*.txt): precondition, step, interface, expected telegram bytes and time limit (t − t1 < 500 ms). Read telegram overview xlsx (3.4.6-3.4.16) incl. developer notes ('Real OC = BL5') and use cases."
+      },
+      {
+        "step": 2,
+        "activity": "Read the verdicts (PDF report)",
+        "details": "Extracted text of the 65-page PDF (pdfplumber), removed the byte-by-byte 'pass' rows, then searched for Fail / Inconclusive / timeout lines. Result: TC3 + TC4 fail in PREPARATION, not in a test step; TC5 stopped manually."
+      },
+      {
+        "step": 3,
+        "activity": "Read the CANoe write log",
+        "details": "TDS_Report_21026.txt = decoded 3.4.11 telegrams with CANoe time. Gives the GFM-A state sequence quickly."
+      },
+      {
+        "step": 4,
+        "activity": "Decode the pcapng with the DB dissectors",
+        "details": "Installed LUA.zip dissectors (RaSTA + SCI). tshark command:\ntshark -X lua_script:loader.lua -r RealOCWorking_TDS_21026.pcapng -Y \"not rasta.type==0x184c\" -T fields -e frame.number -e frame.time_relative -e ip.src -e _ws.col.Info\n(loader.lua = init.lua.neupro with absolute paths; in Wireshark GUI: copy LUA folder into the global plugins folder). SCI preference 'TDS Protokoll' must be 5 (BL5) for the real OC.\nUseful display filters: rasta.type==0x1860 (data only), sci.messageType==0x0007 (3.4.11), sci.messageType==0x0003 (AZGH), sci.messageType==0x0006 (rejection), icmp."
+      },
+      {
+        "step": 5,
+        "activity": "Align the time bases",
+        "details": "Offset = CANoe time − pcap relative time = 3.462272 s (first frame). Verified: RaSTA timestamp in CANoe-sent frames equals the CANoe time in µs (AZGH frame 133 -> 64545970 = report 64.545970 s). Every PDF step can now be matched to the frame."
+      },
+      {
+        "step": 6,
+        "activity": "Decode the BLF",
+        "details": "Python: read LOGG header, decompress LOBJ containers (zlib), iterate objects (exact object size, scan to next 'LOBJ'). Object types: 120 = Ethernet frame (compare with pcap), 130 = system variable (Panel::*, SCITDS::*), 118/115 = test-structure events. Checked count against the header (11 095 objects) – a first version with wrong padding lost 50 % of objects."
+      },
+      {
+        "step": 7,
+        "activity": "Build a correlated timeline",
+        "details": "Merged PDF steps, pcap data telegrams and BLF sysvar events by CANoe time (sheet 'Correlated Timeline'), then built the GFM-A state machine (sheet 'GFM-A State History')."
+      },
+      {
+        "step": 8,
+        "activity": "Check the communication layer first",
+        "details": "Conversations / Protocol Hierarchy statistics, heartbeat interval and RaSTA sequence continuity per direction and session, connection setup time. -> Healthy, so the failures are not network-related (S13)."
+      },
+      {
+        "step": 9,
+        "activity": "Compare expected vs actual",
+        "details": "For every failing step: expected state/bytes/time from spec vs actual telegram bytes/time from trace. Looked for the same stimulus elsewhere in the run (TC1 preparation contains the exact TC3 stimulus -> 11.2 s reaction, S03)."
+      },
+      {
+        "step": 10,
+        "activity": "Classify and derive scenarios",
+        "details": "Each deviation was classified (SUT behaviour, physical stimulation, test design, script logic, configuration/baseline, operator/process, tooling) with evidence, root cause, potential reasons, confidence and recommendation (sheet 'Analysis Scenarios')."
+      }
+    ],
+    "open_questions": [
+      {
+        "id": "Q1",
+        "question": "Is 'Meldung Kommando abgewiesen' (0x0006) expected from the BL5 real OC for discarded AZGH/AZG? (use-case sheet says yes, trace says no – S09)",
+        "scenario_ids": [
+          "S09"
+        ]
+      },
+      {
+        "id": "Q2",
+        "question": "Is the ~11-12 s delay until 'grundstellbar' a known OC parameter? Which value does the Lastenheft BL5 define? (S02/S03)",
+        "scenario_ids": [
+          "S02",
+          "S03"
+        ]
+      },
+      {
+        "id": "Q3",
+        "question": "What does the suffix '(F-ReZE)' / '(O-ReZE)' mean, and should 00525 be executed via local operation (AZ6) instead of BTP? (S11)",
+        "scenario_ids": [
+          "S11"
+        ]
+      },
+      {
+        "id": "Q4",
+        "question": "Who performed the panel commands at 381.6 s / 391.4 s and was this intended? (S08)",
+        "scenario_ids": [
+          "S08"
+        ]
+      },
+      {
+        "id": "Q5",
+        "question": "Test-spec extract for TC_NPRO.295.00522.01 is missing – needed to analyse TC5.",
+        "scenario_ids": []
+      }
+    ]
+  }
+}

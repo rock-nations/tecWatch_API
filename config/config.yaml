@@ -9,8 +9,9 @@ api:
   max_payload_bytes: 1048576  # 1 MB maximum payload length
 
 analysis:
-  report_path: "data/data-analysis-report.json"  # JSON report served by GET /api/analysis (relative to the backend folder)
-  max_report_bytes: 1048576                       # 1 MB maximum report length
+  report_path: "data/data-analysis-report.json"   # JSON report served by GET /api/analysis (relative to the backend folder)
+  scenarios_path: "data/analysis-scenarios.json"  # Findings served by GET /api/analysis/scenarios
+  max_report_bytes: 1048576                        # 1 MB maximum length of each analysis file
 
 gateway:
   listen_host: "0.0.0.0"
