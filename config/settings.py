@@ -22,6 +22,10 @@ class ApiConfig(BaseModel):
     status_endpoint: str = Field(default="/api/status", description="Status endpoint path")
     result_endpoint: str = Field(default="/api/analysis", description="Post-analysis endpoint path")
     max_payload_bytes: int = Field(default=1048576, ge=1024, description="Max allowed payload size in bytes")
+    status_fallback: bool = Field(
+        default=True,
+        description="GET /api/status returns the built-in simulated status when the tecWatch server cannot be reached",
+    )
 
     @field_validator("status_endpoint", "result_endpoint")
     @classmethod
@@ -119,6 +123,8 @@ class ConfigManager:
             raw_data.setdefault("api", {})["status_endpoint"] = os.environ["TECWATCH_STATUS_ENDPOINT"]
         if "TECWATCH_RESULT_ENDPOINT" in os.environ:
             raw_data.setdefault("api", {})["result_endpoint"] = os.environ["TECWATCH_RESULT_ENDPOINT"]
+        if "TECWATCH_STATUS_FALLBACK" in os.environ:
+            raw_data.setdefault("api", {})["status_fallback"] = os.environ["TECWATCH_STATUS_FALLBACK"]
         if "TECWATCH_ANALYSIS_REPORT_PATH" in os.environ:
             raw_data.setdefault("analysis", {})["report_path"] = os.environ["TECWATCH_ANALYSIS_REPORT_PATH"]
         if "TECWATCH_ANALYSIS_SCENARIOS_PATH" in os.environ:

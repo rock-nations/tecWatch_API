@@ -3,9 +3,10 @@ Minimal reader for pcapng and classic pcap capture files, plus Ethernet/IPv4/UDP
 Frames are numbered like Wireshark does (every packet block counts), so frame numbers in findings
 match what an engineer sees when opening the same file in Wireshark.
 """
+import ipaddress
 import struct
 from dataclasses import dataclass
-from typing import Iterator, List, Optional
+from typing import Iterator, List, Optional, Tuple
 
 
 class CaptureFormatError(ValueError):
@@ -45,8 +46,9 @@ PCAP_MAGICS = {
 }
 CUSTOM_BLOCK_TYPES = (0x00000BAD, 0x40000BAD)
 LINKTYPE_ETHERNET = 1
-LINKTYPE_RAW = (101, 228)
+LINKTYPE_RAW = (101, 228, 229)  # raw IP, IPv4, IPv6
 LINKTYPE_LINUX_SLL = 113
+ETHERTYPE_IPV4, ETHERTYPE_IPV6 = 0x0800, 0x86DD
 
 
 def is_capture(data: bytes) -> bool:
@@ -139,8 +141,8 @@ def _read_pcap(data: bytes) -> Iterator[Packet]:
         offset += captured_length
 
 
-def decode_ipv4(packet: Packet) -> Optional[tuple]:
-    """Returns (protocol, source IP, destination IP, payload) for IPv4 packets, else None."""
+def _network_layer(packet: Packet) -> Optional[Tuple[int, bytes]]:
+    """Returns (EtherType, network-layer bytes) of Ethernet (with VLAN tags), raw IP and Linux SLL frames."""
     data = packet.data
     if packet.link_type == LINKTYPE_ETHERNET:
         if len(data) < 14:
@@ -152,18 +154,36 @@ def decode_ipv4(packet: Packet) -> Optional[tuple]:
                 return None
             ether_type = struct.unpack_from("!H", data, offset + 2)[0]
             offset += 4
-        if ether_type != 0x0800:
+        return ether_type, data[offset:]
+    if packet.link_type in LINKTYPE_RAW:
+        version = data[0] >> 4 if data else 0
+        return {4: ETHERTYPE_IPV4, 6: ETHERTYPE_IPV6}.get(version, 0), data
+    if packet.link_type == LINKTYPE_LINUX_SLL:
+        if len(data) < 16:
             return None
-        ip = data[offset:]
-    elif packet.link_type in LINKTYPE_RAW:
-        ip = data
-    elif packet.link_type == LINKTYPE_LINUX_SLL:
-        if len(data) < 16 or struct.unpack_from("!H", data, 14)[0] != 0x0800:
-            return None
-        ip = data[16:]
-    else:
-        return None
+        return struct.unpack_from("!H", data, 14)[0], data[16:]
+    return None
 
+
+def ip_addresses(packet: Packet) -> Optional[Tuple[str, str]]:
+    """(source, destination) address of IPv4 and IPv6 packets, fragments included; None for other frames."""
+    layer = _network_layer(packet)
+    if layer is None:
+        return None
+    ether_type, ip = layer
+    if ether_type == ETHERTYPE_IPV4 and len(ip) >= 20 and ip[0] >> 4 == 4:
+        return _ip(ip[12:16]), _ip(ip[16:20])
+    if ether_type == ETHERTYPE_IPV6 and len(ip) >= 40 and ip[0] >> 4 == 6:
+        return str(ipaddress.IPv6Address(ip[8:24])), str(ipaddress.IPv6Address(ip[24:40]))
+    return None
+
+
+def decode_ipv4(packet: Packet) -> Optional[tuple]:
+    """Returns (protocol, source IP, destination IP, payload) for IPv4 packets, else None."""
+    layer = _network_layer(packet)
+    if layer is None or layer[0] != ETHERTYPE_IPV4:
+        return None
+    ip = layer[1]
     if len(ip) < 20 or ip[0] >> 4 != 4:
         return None
     header_length = (ip[0] & 0x0F) * 4

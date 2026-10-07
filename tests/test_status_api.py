@@ -1,9 +1,12 @@
 import json
+import socket
 from pathlib import Path
 import pytest
 import defusedxml.ElementTree as DefusedET
+from httpx import ASGITransport, AsyncClient
+from config.settings import ConfigManager
 from src.models.status import StatusResponse
-from src.services.client import UpstreamConnectionError
+from src.services.client import TecWatchClient, UpstreamConnectionError, UpstreamTimeoutError
 
 DEVICE_ID = "DETHMM AZA34##0001"
 EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "docs" / "examples"
@@ -38,6 +41,7 @@ async def test_get_status_json_success(client):
     assert execution["state"] in {"IDLE", "RUNNING", "STOPPED", "COMPLETED"}
     assert execution["passed"] + execution["failed"] + execution["inconclusive"] >= 0
     assert isinstance(data["active_alerts"], list)
+    assert data["source"] == "tecwatch"
 
 
 @pytest.mark.asyncio
@@ -55,20 +59,69 @@ async def test_get_status_xml_success(client):
     assert root.find("test_execution/state").text is not None
 
 
+def _unreachable(error):
+    async def fetch(self, device_id=None):
+        raise error
+    return fetch
+
+
 @pytest.mark.asyncio
-async def test_get_status_upstream_failure(client, monkeypatch):
-    from src.services.client import TecWatchClient
-
-    async def mock_fail_fetch(self, device_id=None):
-        raise UpstreamConnectionError("Target server unreachable")
-
-    monkeypatch.setattr(TecWatchClient, "fetch_status", mock_fail_fetch)
+@pytest.mark.parametrize("error", [
+    UpstreamConnectionError("Target server unreachable"),
+    UpstreamTimeoutError("Connection to target server timed out"),
+], ids=["connection-refused", "timeout"])
+async def test_get_status_falls_back_to_simulated_status(client, monkeypatch, error):
+    monkeypatch.setattr(TecWatchClient, "fetch_status", _unreachable(error))
 
     response = await client.get("/api/status")
-    assert response.status_code == 502
+    assert response.status_code == 200
     data = response.json()
-    assert data["error"] == "Bad Gateway"
-    assert "Target server unreachable" in data["detail"]
+    StatusResponse.model_validate(data)
+    assert data["source"] == "simulated"
+    assert data["device_id"] == DEVICE_ID
+    assert data["track_sections"][0]["occupancy"] == "DISTURBED"
+    assert len(data["active_alerts"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_simulated_status_keeps_device_id_and_xml(client, monkeypatch):
+    monkeypatch.setattr(TecWatchClient, "fetch_status", _unreachable(UpstreamConnectionError("refused")))
+
+    response = await client.get("/api/status", params={"device_id": "DETHMM AZA35##0002"}, headers={"Accept": "application/xml"})
+    assert response.status_code == 200
+    root = DefusedET.fromstring(response.content)
+    assert root.find("device_id").text == "DETHMM AZA35##0002"
+    assert root.find("source").text == "simulated"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error, status, title", [
+    (UpstreamConnectionError("Target server unreachable"), 502, "Bad Gateway"),
+    (UpstreamTimeoutError("Connection to target server timed out"), 504, "Gateway Timeout"),
+], ids=["connection-refused", "timeout"])
+async def test_get_status_upstream_failure_without_fallback(client, monkeypatch, error, status, title):
+    ConfigManager.get_instance().config.api.status_fallback = False
+    monkeypatch.setattr(TecWatchClient, "fetch_status", _unreachable(error))
+
+    response = await client.get("/api/status")
+    assert response.status_code == status
+    data = response.json()
+    assert data["error"] == title
+    assert str(error) in data["detail"]
+
+
+@pytest.mark.asyncio
+async def test_status_fallback_when_nothing_listens_on_the_tecwatch_port(api_app):
+    with socket.socket() as probe:  # a free local port: connections are refused
+        probe.bind(("127.0.0.1", 0))
+        free_port = probe.getsockname()[1]
+    cfg = ConfigManager.get_instance().config
+    cfg.server.host, cfg.server.port = "127.0.0.1", free_port
+
+    async with AsyncClient(transport=ASGITransport(app=api_app), base_url="http://gateway:8000") as gateway:
+        response = await gateway.get("/api/status")
+    assert response.status_code == 200
+    assert response.json()["source"] == "simulated"
 
 
 @pytest.mark.asyncio
@@ -86,7 +139,7 @@ async def test_get_status_upstream_data_invalid(client, monkeypatch):
 
     monkeypatch.setattr(TecWatchClient, "fetch_status", mock_old_format_fetch)
 
-    response = await client.get("/api/status")
+    response = await client.get("/api/status")  # invalid data is reported, not replaced by the simulated status
     assert response.status_code == 502
     data = response.json()
     assert data["error"] == "Bad Gateway"

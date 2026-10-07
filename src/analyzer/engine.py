@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple
 
 from src.analyzer.capture import CaptureFormatError, decode_icmp_unreachable, decode_udp, read_packets
 from src.analyzer.report import ReportFailure, ReportTestCase, TestReport, read_report
+from src.analyzer.traffic import build_io_graph
 from src.analyzer.sci import (
     AUFRUEST_TYPES,
     CONNECTION_REQUEST,
@@ -136,6 +137,7 @@ class CaptureData:
     commands: List[Command] = field(default_factory=list)
     rejections: List[Tuple[int, float, str]] = field(default_factory=list)
     version_results: List[Tuple[int, float, int]] = field(default_factory=list)
+    io_graph: Optional[dict] = None
     max_gap_s: Dict[str, float] = field(default_factory=dict)
     sequence_problems: List[str] = field(default_factory=list)
     retransmissions: int = 0
@@ -247,6 +249,12 @@ def decode_capture(file_name: str, data: bytes, tz: Optional[timezone]) -> Captu
         capture.frames.append(Frame(packet.number, rel + shift, wall(packet.timestamp), udp.src, udp.dst, pdu, telegrams))
         capture.port = capture.port or udp.dst_port
 
+    roles = {ip: role for ip, role in ((ze_ip, "ESTW-ZE (CANoe)"), (oc_ip, "Object controller")) if ip}
+    capture.io_graph = build_io_graph(
+        file_name, packets, roles,
+        canoe_zero_epoch_s=start - offset if offset is not None else None,
+        utc_offset_min=int(tz.utcoffset(None).total_seconds() // 60) if tz else None,
+    )
     _decode_sessions(capture)
     _decode_telegrams(capture)
     return capture
@@ -991,6 +999,7 @@ def analyze(capture_file: Optional[Tuple[str, bytes]], report_file: Optional[Tup
             "states": states,
         },
         "method": {"steps": _method_steps(capture, report), "open_questions": []},
+        "io_graph": capture.io_graph if capture else None,
     }
 
 

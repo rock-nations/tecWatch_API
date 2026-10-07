@@ -12,6 +12,7 @@ def test_default_config_loading():
     assert cfg.api.status_endpoint == "/api/status"
     assert cfg.api.result_endpoint == "/api/analysis"
     assert cfg.api.max_payload_bytes == 1048576
+    assert cfg.api.status_fallback is True
     assert cfg.analysis.report_path == "data/data-analysis-report.json"
     assert cfg.analysis.scenarios_path == "data/analysis-scenarios.json"
     assert cfg.analysis.max_report_bytes == 1048576
@@ -28,6 +29,7 @@ def test_environment_variable_override(monkeypatch, tmp_path):
     monkeypatch.setenv("TECWATCH_RESULT_ENDPOINT", "/custom/analysis")
     monkeypatch.setenv("TECWATCH_ANALYSIS_REPORT_PATH", str(report_file))
     monkeypatch.setenv("TECWATCH_ANALYSIS_SCENARIOS_PATH", str(scenarios_file))
+    monkeypatch.setenv("TECWATCH_STATUS_FALLBACK", "false")
 
     mgr = ConfigManager()
     cfg = mgr.load()
@@ -39,6 +41,7 @@ def test_environment_variable_override(monkeypatch, tmp_path):
     assert cfg.api.result_endpoint == "/custom/analysis"
     assert cfg.analysis.resolved_report_path == report_file
     assert cfg.analysis.resolved_scenarios_path == scenarios_file
+    assert cfg.api.status_fallback is False
 
 
 def test_relative_report_path_resolves_against_backend_folder(tmp_path):
