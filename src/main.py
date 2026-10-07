@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
     logger.info(f" Analysis Report File:   {config.analysis.resolved_report_path}")
     logger.info(f" Analysis Scenarios:     {config.analysis.resolved_scenarios_path}")
     logger.info(f" Max Payload Bytes:      {config.api.max_payload_bytes}")
+    logger.info(f" Max Upload Bytes:       {config.analysis.max_upload_bytes} per file")
     logger.info("==================================================")
     yield
     # Shutdown
@@ -37,7 +38,7 @@ def create_app() -> FastAPI:
         title="tecWatch Configurable Status & Post-Analysis API",
         description=(
             "Dynamic API layer for communication between tecWatch, analysis components, "
-            "and the DBLTAS Web GUI. Supports dynamic server configuration, dual JSON/XML payloads, "
+            "and the DBLTAS Dashboard. Supports dynamic server configuration, dual JSON/XML payloads, "
             "and strict validation."
         ),
         version="1.0.0",
@@ -46,7 +47,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Middleware: CORS (Allows DBLTAS Web GUI to connect from browser)
+    # Middleware: CORS (Allows DBLTAS Dashboard to connect from browser)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

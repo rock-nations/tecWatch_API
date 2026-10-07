@@ -12,6 +12,7 @@ analysis:
   report_path: "data/data-analysis-report.json"   # JSON report served by GET /api/analysis (relative to the backend folder)
   scenarios_path: "data/analysis-scenarios.json"  # Findings served by GET /api/analysis/scenarios
   max_report_bytes: 1048576                        # 1 MB maximum length of each analysis file
+  max_upload_bytes: 52428800                       # 50 MB maximum size of each file uploaded for analysis (capture, test report)
 
 gateway:
   listen_host: "0.0.0.0"

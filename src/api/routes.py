@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from config.settings import ConfigManager
@@ -10,6 +10,7 @@ from src.models.scenarios import AnalysisScenarios
 from src.models.status import StatusResponse
 from src.services.analysis_report import load_analysis_report, load_analysis_scenarios
 from src.services.client import TecWatchClient, UpstreamDataError
+from src.services.upload_analysis import check_upload_types, read_upload, run_upload_analysis
 from src.services.xml_handler import XMLParseError, dict_to_xml_str, parse_xml_to_dict
 from src.utils.logger import logger
 
@@ -112,6 +113,42 @@ async def get_analysis_scenarios(request: Request):
         return Response(content=xml_output, media_type="application/xml")
 
     return scenarios
+
+
+@router.post(
+    "/analysis/upload",
+    summary="Analyse an uploaded SCI-TDS capture (pcapng/pcap) and/or CANoe test report (PDF)",
+    responses={
+        200: {"model": AnalysisScenarios, "description": "Findings, test-case explanations, timeline and GFM-A states"},
+        400: {"description": "No file uploaded, or an uploaded file is empty"},
+        413: {"description": "A file exceeds analysis.max_upload_bytes"},
+        415: {"description": "The capture is not a pcapng/pcap file, or the report is not a PDF"},
+        422: {"description": "A file could not be decoded (damaged capture, PDF that is not a CANoe test report)"},
+    },
+)
+async def upload_analysis(
+    request: Request,
+    capture: Optional[UploadFile] = File(None, description="SCI-TDS capture of the test run (.pcapng or .pcap)"),
+    report: Optional[UploadFile] = File(None, description="CANoe test report of the test run (.pdf)"),
+):
+    """
+    Analyses the uploaded files (multipart/form-data, at least one of `capture` and `report`).
+    The capture is decoded to RaSTA / SCI-TDS telegrams, the report to test cases and failing steps; both time
+    bases are aligned and rule-based checks explain why test cases failed. The result has the format of
+    GET /api/analysis/scenarios, so the Web GUI shows it with the same views. Nothing is stored.
+    """
+    max_bytes = ConfigManager.get_instance().config.analysis.max_upload_bytes
+    capture_file = await read_upload(capture, max_bytes, "capture.pcapng")
+    report_file = await read_upload(report, max_bytes, "report.pdf")
+    check_upload_types(capture_file, report_file)
+    document = await run_in_threadpool(run_upload_analysis, capture_file, report_file)
+
+    accept_header = request.headers.get("accept", "").lower()
+    if "application/xml" in accept_header or "text/xml" in accept_header:
+        xml_output = dict_to_xml_str("AnalysisScenarios", document)
+        return Response(content=xml_output, media_type="application/xml")
+
+    return document
 
 
 @router.post("/analysis", summary="Send post-analysis results to DBLTAS")
@@ -217,6 +254,7 @@ async def get_active_config():
             "scenarios_path": cfg.analysis.scenarios_path,
             "resolved_scenarios_path": str(cfg.analysis.resolved_scenarios_path),
             "max_report_bytes": cfg.analysis.max_report_bytes,
+            "max_upload_bytes": cfg.analysis.max_upload_bytes,
         },
         "gateway": {
             "listen_host": cfg.gateway.listen_host,

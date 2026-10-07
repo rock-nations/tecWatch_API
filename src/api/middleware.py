@@ -6,15 +6,23 @@ from config.settings import ConfigManager
 from src.utils.logger import logger
 
 
+UPLOAD_PATH = "/api/analysis/upload"
+
+
 class MessageLengthMiddleware(BaseHTTPMiddleware):
     """
     Middleware that enforces payload message-length limits.
     Inspects Content-Length header and streamed byte length, rejecting oversized
     payloads with HTTP 413 Payload Too Large before allocating memory.
+    File uploads for analysis have their own, larger limit (analysis.max_upload_bytes per file).
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        max_bytes = ConfigManager.get_instance().config.api.max_payload_bytes
+        config = ConfigManager.get_instance().config
+        if request.url.path == UPLOAD_PATH:
+            max_bytes = config.analysis.max_upload_request_bytes
+        else:
+            max_bytes = config.api.max_payload_bytes
         content_length_header = request.headers.get("content-length")
 
         if content_length_header:
