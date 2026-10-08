@@ -5,7 +5,7 @@ from src.analyzer.capture import CaptureFormatError, decode_udp, read_packets
 from src.analyzer.engine import analyze, decode_capture
 from src.analyzer.report import ReportFormatError, parse_report, read_report
 from src.analyzer.sci import decode_rasta, decode_sci
-from src.analyzer.traffic import MAX_HOSTS, build_io_graph, interval_for
+from src.analyzer.traffic import MAX_HOSTS, build_io_graph
 from src.models.scenarios import AnalysisScenarios, IoGraph
 from tests.sample_files import (
     BELEGT,
@@ -222,24 +222,25 @@ def test_command_answered_late_is_reported():
 
 # --- I/O graph ------------------------------------------------------------------------------------
 
-def test_io_graph_counts_packets_per_second_and_address(synthetic_report):
+def test_io_graph_lists_every_packet_with_time_and_addresses(synthetic_report):
     data = disturbed_capture()
     graph = analyze(("trace.pcapng", data), synthetic_report)["io_graph"]
     IoGraph.model_validate(graph)
     packets = read_packets(data)
 
-    assert graph["interval_s"] == 1.0
     assert graph["start_epoch_s"] == pytest.approx(CAPTURE_START)
+    assert graph["duration_s"] == pytest.approx(20.01)
     assert graph["canoe_zero_epoch_s"] == pytest.approx(CAPTURE_START - CANOE_OFFSET_S)
     assert graph["utc_offset_min"] == 120  # from the report's "+02:00"
-    assert graph["total_packets"] == sum(graph["all_packets"]) == len(packets)
-    assert len(graph["all_packets"]) == 21  # 0 .. 20.01 s
+    assert graph["total_packets"] == len(graph["packet_time_us"]) == len(packets)
+    assert graph["packet_time_us"][:2] == [0, 100000]  # connection request and response
 
     ze, oc = graph["hosts"]
     assert (ze["address"], ze["role"]) == (ZE_IP, "ESTW-ZE (CANoe)")
     assert (oc["address"], oc["role"]) == (OC_IP, "Object controller")
-    assert ze["packets_sent"] == sum(ze["sent"]) == oc["packets_received"] == sum(oc["received"])
-    assert ze["sent"][0] == 4  # connection request, version check and heartbeats in the first second
+    assert ze["packets_sent"] == graph["packet_src"].count(0) == oc["packets_received"] == graph["packet_dst"].count(1)
+    first_second = [i for i, t in enumerate(graph["packet_time_us"]) if t < 1_000_000 and graph["packet_src"][i] == 0]
+    assert len(first_second) == 4  # connection request, version check and heartbeats
     assert graph["other_hosts"] == 0
 
 
@@ -253,16 +254,24 @@ def test_io_graph_counts_fragments_ipv6_and_other_frames():
     graph = build_io_graph("mixed.pcapng", read_packets(pcapng(frames)), {}, None, None)
     IoGraph.model_validate(graph)
 
-    assert graph["all_packets"] == [2, 1, 1]
+    assert graph["packet_time_us"] == [0, 500000, 1200000, 2900000]
     assert [h["address"] for h in graph["hosts"]] == [ZE_IP, OC_IP, "fd00::1", "fd00::2"]
-    assert graph["hosts"][0]["sent"] == [2, 0, 0]
-    assert graph["hosts"][2]["sent"] == [0, 1, 0]
+    assert graph["packet_src"] == [0, 0, 2, -1]  # the ARP frame has no IP address
+    assert graph["packet_dst"] == [1, 1, 3, -1]
     assert graph["canoe_zero_epoch_s"] is None and graph["utc_offset_min"] is None
 
 
-def test_io_graph_interval_keeps_long_captures_small():
-    assert [interval_for(seconds) for seconds in (0, 484, 3599, 3600, 4 * 3600, 72 * 3600)] == [1.0, 1.0, 1.0, 2.0, 5.0, 120.0]
-    assert interval_for(10 ** 9) == float(-(-10 ** 9 // 3600))
+def test_io_graph_sorts_packets_by_time():
+    frames = [
+        (CAPTURE_START + 0.002, udp_frame(OC_IP, ZE_IP, b"x" * 40)),
+        (CAPTURE_START, udp_frame(ZE_IP, OC_IP, b"x" * 40)),
+        (CAPTURE_START + 0.0015, udp_frame(ZE_IP, OC_IP, b"x" * 40)),
+    ]
+    graph = build_io_graph("unordered.pcapng", read_packets(pcapng(frames)), {}, None, None)
+
+    assert graph["packet_time_us"] == [0, 1500, 2000]
+    assert graph["packet_src"] == [0, 0, 1]
+    assert graph["duration_s"] == pytest.approx(0.002)
 
 
 def test_io_graph_lists_only_the_busiest_addresses():
@@ -272,12 +281,19 @@ def test_io_graph_lists_only_the_busiest_addresses():
     assert graph["hosts"][0]["address"] == OC_IP  # received all 100 packets
     assert len(graph["hosts"]) == MAX_HOSTS
     assert graph["other_hosts"] == 26 - MAX_HOSTS
+    assert graph["packet_src"].count(-1) == 24  # 6 senders are not listed, 4 packets each
+    assert graph["packet_dst"].count(0) == 100
 
 
-def test_io_graph_rejects_intervals_of_different_length():
+@pytest.mark.parametrize("mutate, message", [
+    (lambda g: g["packet_src"].pop(), "must have"),
+    (lambda g: g["packet_time_us"].reverse(), "time order"),
+    (lambda g: g["packet_dst"].__setitem__(0, 7), "not in hosts"),
+])
+def test_io_graph_rejects_inconsistent_packets(mutate, message):
     graph = build_io_graph("trace.pcapng", read_packets(disturbed_capture()), {}, None, None)
-    graph["hosts"][0]["sent"] = graph["hosts"][0]["sent"][:-1]
-    with pytest.raises(ValueError, match="sent and received must have 21 intervals"):
+    mutate(graph)
+    with pytest.raises(ValueError, match=message):
         IoGraph.model_validate(graph)
 
 
@@ -300,3 +316,4 @@ def test_real_test_bench_files():
     graph = document["io_graph"]
     assert graph["total_packets"] == 2159  # frames without the 3 CANoe Custom Blocks
     assert [(h["address"], h["packets_sent"]) for h in graph["hosts"]] == [("1.208.188.16", 1093), ("10.129.15.2", 1060)]
+    assert graph["packet_src"].count(0) == 1093

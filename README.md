@@ -314,12 +314,12 @@ curl -s -X POST "http://localhost:8000/api/analysis/upload" \
   -F "report=@Real_SCI-TDS_2026-10-02_12-24-11.pdf"
 ```
 
-The response has the format of `GET /api/analysis/scenarios`, plus an `io_graph` when a capture was uploaded: packets per interval (1 s for captures up to one hour) for all frames and for each IP address as sender (`ip.src`) and receiver (`ip.dst`), like the Wireshark I/O graph. The Web GUI draws it with an IP filter. Every test case that did not pass gets a plain-language `root_cause`, for example:
+The response has the format of `GET /api/analysis/scenarios`, plus an `io_graph` when a capture was uploaded: the time (µs) and the source/destination address of every packet, so the Web GUI can draw packets per interval (1 ms to 10 min) for all frames and for each IP address as sender (`ip.src`) or receiver (`ip.dst`), like the Wireshark I/O graph, with an IP filter. Every test case that did not pass gets a plain-language `root_cause`, for example:
 
 > The GFM-A 34W1 switched to 'gestört' at 186.952 s, 102 ms after an occupation with an invalid axle count (0x0000). It was 'grundstellbar' for 50.0 s, but no AZG/AZGH was sent to clear it. The required GFM-A state was never reached, so the preparation timed out after 120 s and the test steps were not executed. …
 
 How it works (`src/analyzer/`):
-1. **Capture** (`capture.py`, `sci.py`, `traffic.py`): reads pcapng/pcap (frame numbers as in Wireshark), decodes RaSTA redundancy/safety layer and SCI-TDS telegrams with the Baseline 5 coding of the DB dissectors, and counts packets per interval and IP address for the I/O graph.
+1. **Capture** (`capture.py`, `sci.py`, `traffic.py`): reads pcapng/pcap (frame numbers as in Wireshark), decodes RaSTA redundancy/safety layer and SCI-TDS telegrams with the Baseline 5 coding of the DB dissectors, and lists the time and IP addresses of every packet for the I/O graph.
 2. **Report** (`report.py`): extracts the PDF text (pypdf) and reads test cases, verdicts, failing steps and the `Sende '…'` lines.
 3. **Time alignment**: CANoe stamps the RaSTA PDUs it sends with its measurement time, so `CANoe time = capture time + offset` (median over all PDUs, accepted when the spread is below 5 ms).
 4. **Rules** (`engine.py`): communication health, GFM-A disturbances and their trigger (occupation without valid axle count), test cases that start in a disturbed state, slow or missing reactions to AZG/AZGH, unused 'grundstellbar' windows, commands not sent by the test script, preparation timeouts, failed cleanups and manual stops.
@@ -464,7 +464,7 @@ tecwatch_api/
 │   │   ├── capture.py       # pcapng/pcap reader, Ethernet/VLAN/IPv4/UDP/ICMP decoding
 │   │   ├── sci.py           # RaSTA and SCI-TDS Baseline 5 decoding
 │   │   ├── report.py        # CANoe test report (PDF) parser
-│   │   ├── traffic.py       # Packets per interval and IP address (I/O graph)
+│   │   ├── traffic.py       # Packet times and IP addresses for the I/O graph
 │   │   └── engine.py        # Time alignment, analysis rules, result document
 │   ├── api/
 │   │   ├── routes.py        # /api/status, /api/analysis, /api/analysis/upload, /api/config endpoints

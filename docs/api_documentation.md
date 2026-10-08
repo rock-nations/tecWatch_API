@@ -353,17 +353,18 @@ curl -s -X POST "http://localhost:8000/api/analysis/upload" \
 | Time alignment | CANoe writes its measurement time (µs) into the RaSTA timestamp of the PDUs it sends: `CANoe time = capture time + offset` (median; accepted when the median deviation is ≤ 5 ms). Without it, capture and report findings are not mapped to test cases. |
 | Rules | Communication health (unanswered connections, abnormal disconnects, failed BTP version check, retransmissions, sequence gaps, message gaps > 750 ms); GFM-A 'gestört' episodes and their trigger (occupation with axle count 0x0000); test cases starting in a disturbed state; reactions to AZG/AZGH slower than 500 ms or missing; recovery commands while not 'grundstellbar'; unused 'grundstellbar' windows; commands not sent by the test script; preparation timeouts; failed cleanups; manual stops; other failing steps |
 | Result | `test_cases[].root_cause` explains each failed or inconclusive test case in plain language; `scenarios` are sorted by severity (`S01` = most severe); `timeline` (max. 400 events) and `gfma_state_history` are built from the decoded data |
-| I/O graph | `io_graph` (only with a capture): packets per interval of all frames and of the 20 busiest IPv4/IPv6 addresses, as source (`ip.src`) and destination (`ip.dst`); fragments are counted, other frames (e.g. ARP) only in `all_packets` |
+| I/O graph | `io_graph` (only with a capture): time and source/destination address of every packet, for the 20 busiest IPv4/IPv6 addresses; the Web GUI counts the packets per interval (1 ms to 10 min). Fragments are counted; other frames (e.g. ARP) and unlisted addresses have address index `-1` |
 
 #### `io_graph` structure:
 | Key | Content |
 | :--- | :--- |
 | `capture_file`, `total_packets` | Capture and number of frames |
-| `start_epoch_s`, `interval_s` | Unix time of the first packet and width of one interval: 1 s for captures up to one hour, then 2, 5, 10, 30 s … so there are at most 3600 intervals |
+| `start_epoch_s`, `duration_s` | Unix time of the first packet and time from the first to the last packet |
 | `utc_offset_min` | UTC offset of the test bench from the test report (`null` without report) |
 | `canoe_zero_epoch_s` | Unix time of CANoe measurement time 0 (`null` if the capture cannot be aligned); used to place test-case windows on the time axis |
-| `all_packets` | Frames per interval |
-| `hosts[]` | `address`, `role` (`ESTW-ZE (CANoe)`, `Object controller` or `null`), `packets_sent`, `packets_received`, `sent[]` and `received[]` per interval (same length as `all_packets`) |
+| `packet_time_us[]` | Time of every packet after the first one [µs], in time order (`total_packets` entries) |
+| `packet_src[]`, `packet_dst[]` | Index in `hosts` of each packet's source / destination address, `-1` if the packet has no IP address or the address is not listed |
+| `hosts[]` | `address`, `role` (`ESTW-ZE (CANoe)`, `Object controller` or `null`), `packets_sent`, `packets_received` |
 | `other_hosts` | Number of addresses that are not listed |
 
 #### Error Responses:
