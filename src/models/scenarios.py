@@ -124,22 +124,23 @@ PacketCount = Annotated[int, Field(ge=0)]
 
 
 class IoGraphHost(StrictModel):
-    """Packets one IP address sent and received per interval."""
+    """IP address in the capture with the number of packets it sent and received."""
 
     address: Annotated[str, StringConstraints(min_length=2, max_length=64)] = Field(..., description="IPv4 or IPv6 address")
     role: Optional[ShortText] = Field(default=None, description="Role on the SCI-TDS interface (e.g. ESTW-ZE (CANoe))")
     packets_sent: PacketCount = Field(..., description="Packets with this source address")
     packets_received: PacketCount = Field(..., description="Packets with this destination address")
-    sent: List[PacketCount] = Field(..., description="Packets per interval with this source address (ip.src)")
-    received: List[PacketCount] = Field(..., description="Packets per interval with this destination address (ip.dst)")
 
 
 class IoGraph(StrictModel):
-    """Packets per interval over an uploaded capture, like the Wireshark I/O graph."""
+    """
+    Time and IP addresses of every packet of an uploaded capture, so the Web GUI can draw the packets
+    per interval (1 ms to 10 min) like the Wireshark I/O graph.
+    """
 
     capture_file: ShortText = Field(..., description="Capture the graph was built from")
     start_epoch_s: float = Field(..., ge=0, description="Time of the first packet (Unix time, UTC)")
-    interval_s: float = Field(..., gt=0, description="Width of one interval [s]")
+    duration_s: float = Field(..., ge=0, description="Time from the first to the last packet [s]")
     utc_offset_min: Optional[int] = Field(
         default=None, ge=-14 * 60, le=14 * 60, description="UTC offset of the test bench (from the test report)"
     )
@@ -147,16 +148,25 @@ class IoGraph(StrictModel):
         default=None, description="Unix time of CANoe measurement time 0 (null if the capture cannot be aligned)"
     )
     total_packets: PacketCount = Field(..., description="Frames in the capture")
-    all_packets: List[PacketCount] = Field(..., min_length=1, description="All frames per interval")
+    packet_time_us: List[PacketCount] = Field(..., description="Time of every packet after the first one [µs], in time order")
+    packet_src: List[Annotated[int, Field(ge=-1)]] = Field(
+        ..., description="Index in hosts of each packet's source address (-1: not IP or not listed)"
+    )
+    packet_dst: List[Annotated[int, Field(ge=-1)]] = Field(
+        ..., description="Index in hosts of each packet's destination address (-1: not IP or not listed)"
+    )
     other_hosts: PacketCount = Field(default=0, description="Addresses not listed in hosts (only the busiest are listed)")
     hosts: List[IoGraphHost] = Field(default_factory=list, description="Busiest IP addresses, most packets first")
 
     @model_validator(mode="after")
-    def intervals_match(self) -> "IoGraph":
-        intervals = len(self.all_packets)
-        for host in self.hosts:
-            if len(host.sent) != intervals or len(host.received) != intervals:
-                raise ValueError(f"io_graph host {host.address}: sent and received must have {intervals} intervals")
+    def packets_consistent(self) -> "IoGraph":
+        count = self.total_packets
+        if not len(self.packet_time_us) == len(self.packet_src) == len(self.packet_dst) == count:
+            raise ValueError(f"io_graph: packet_time_us, packet_src and packet_dst must have {count} entries")
+        if any(later < earlier for earlier, later in zip(self.packet_time_us, self.packet_time_us[1:])):
+            raise ValueError("io_graph: packet_time_us must be in time order")
+        if any(index >= len(self.hosts) for index in self.packet_src + self.packet_dst):
+            raise ValueError("io_graph: packet_src/packet_dst refer to an address that is not in hosts")
         return self
 
 
